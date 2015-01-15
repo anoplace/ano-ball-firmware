@@ -30,3 +30,7 @@
 
 # Doxygen
 /html
+
+# TWESDK
+**/objs*/
+*.bin
