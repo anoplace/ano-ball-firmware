@@ -9,8 +9,8 @@
  *
  ****************************************************************************/
 
-#ifndef  SLAVE_H_INCLUDED
-#define  SLAVE_H_INCLUDED
+#ifndef SLAVE_H_INCLUDED
+#define SLAVE_H_INCLUDED
 
 #if defined __cplusplus
 extern "C" {
@@ -41,7 +41,7 @@ extern "C" {
 }
 #endif
 
-#endif  /* SLAVE_H_INCLUDED */
+#endif /* SLAVE_H_INCLUDED */
 
 /****************************************************************************/
 /***        END OF FILE                                                   ***/
