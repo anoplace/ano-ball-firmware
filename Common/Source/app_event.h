@@ -1,15 +1,16 @@
-/*
- * event.h
- *
- *  Created on: 2013/01/10
- *      Author: seigo13
+/**
+ * @file app_event.h
+ * @author Yuuki Taguchi
  */
 
-#ifndef APP_EVENT_H_
-#define APP_EVENT_H_
+#ifndef COMMON_APP_EVENT_H_
+#define COMMON_APP_EVENT_H_
 
 #include "ToCoNet_event.h"
 
+/**
+ * Event
+ */
 typedef enum {
   E_EVENT_APP_BASE = ToCoNet_EVENT_APP_BASE,
   E_PER_START,
@@ -21,7 +22,9 @@ typedef enum {
   E_EVENT_SLEEP_REQUEST
 } teEventApp;
 
-// STATE MACHINE
+/**
+ * State machine
+ */
 typedef enum {
   E_STATE_APP_BASE = ToCoNet_STATE_APP_BASE,
   E_STATE_PER_INIT,
@@ -32,4 +35,4 @@ typedef enum {
   E_STATE_PRE_MEASURING
 } teStateApp;
 
-#endif /* EVENT_H_ */
+#endif /* COMMON_APP_EVENT_H_ */
