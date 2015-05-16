@@ -70,7 +70,7 @@ include ../../../../MkFiles/toconet.mk
 # - 最適化オプションを含め多くのオプションは事前定義されているため
 #   通常は指定不要です。
 #
-#CFLAGS += -DDUMMY
+CFLAGS += -std=c99
 
 ### Build Options
 # プラットフォーム別のビルドをしたり、デバッグ用のビルドのファイル名を変更
