@@ -42,3 +42,5 @@ all:
 clean:
 	-for d in $(DIRS); do (cd $$d; $(MAKE) $(MFLAGS) clean ); done
 
+include ../MkFiles/flash.mk
+
