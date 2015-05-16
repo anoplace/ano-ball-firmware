@@ -148,6 +148,15 @@ void cbToCoNet_vMain(void) {
  */
 void cbToCoNet_vNwkEvent(teEvent eEvent, uint32 u32arg) {
   switch (eEvent) {
+    case E_EVENT_TOCONET_PANIC: {
+      // パニックが起きたら、原因をコンソールに表示
+      tsPanicEventInfo *pInfo = (void *)u32arg;
+      pInfo->bCancelReset = TRUE;  // 直後にリセットしない
+      vfPrintf(&sSerStream, LB "PANIC! %d/%s",  //
+               pInfo->u8ReasonCode, pInfo->strReason);
+      SERIAL_vFlush(sSerStream.u8Device);
+    } break;
+
     default:
       break;
   }
