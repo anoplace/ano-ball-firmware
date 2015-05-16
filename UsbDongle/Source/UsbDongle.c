@@ -110,7 +110,7 @@ void cbAppColdStart(bool_t bAfterAhiInit) {
   }
 }
 
-static bool_t bWakeupByButton;
+//static bool_t bWakeupByButton;
 
 /**
  * AppWarmStart
@@ -120,8 +120,9 @@ void cbAppWarmStart(bool_t bAfterAhiInit) {
   if (!bAfterAhiInit) {
     // before AHI init, very first of code.
     //  to check interrupt source, etc.
-    bWakeupByButton = FALSE;
+    //bWakeupByButton = FALSE;
 
+    /*
     if (u8AHI_WakeTimerFiredStatus()) {
       // wake up timer
     } else if (u32AHI_DioWakeStatus() & u32DioPortWakeUp) {
@@ -130,6 +131,7 @@ void cbAppWarmStart(bool_t bAfterAhiInit) {
     } else {
       bWakeupByButton = FALSE;
     }
+    */
   } else {
     // initialize hardware
     vInitHardware(TRUE);
@@ -482,7 +484,7 @@ static void vProcessEvCore(tsEvent *pEv, teEvent eEvent, uint32 u32evarg) {
     }
     if (u32evarg & EVARG_START_UP_WAKEUP_MASK) {
       vfPrintf(&sSerStream, LB "Wake up by %s. SleepCt=%d",
-               bWakeupByButton ? "UART PORT" : "WAKE TIMER",
+               "UNKNOWN", //bWakeupByButton ? "UART PORT" : "WAKE TIMER",
                sAppData.u8SleepCt);
     } else {
       vfPrintf(&sSerStream, "\r\n*** ToCoNet PINGPONG SAMPLE %d.%02d-%d ***",
