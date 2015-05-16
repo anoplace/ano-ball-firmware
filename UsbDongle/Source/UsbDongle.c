@@ -30,18 +30,24 @@
 #include "app_event.h"
 
 typedef struct {
-  // MAC
+  /** MAC */
   uint8 u8channel;
   uint16 u16addr;
 
-  // LED Counter
+  /** LED Counter */
   uint32 u32LedCt;
 
-  // sequence number
+  /** sequence number */
   uint32 u32Seq;
 
-  // sleep counter
+  /** sleep counter */
   uint8 u8SleepCt;
+
+  /** latest receive time */
+  uint32 u32RxTime_ms;
+
+  /** latest send time */
+  uint32 u32TxTime_ms;
 } tsAppData;
 
 static void vProcessEvCore(tsEvent *pEv, teEvent eEvent, uint32 u32evarg);
@@ -167,6 +173,9 @@ void cbToCoNet_vNwkEvent(teEvent eEvent, uint32 u32arg) {
  * @param pRx
  */
 void cbToCoNet_vRxEvent(tsRxDataApp *pRx) {
+  // latest receive time
+  sAppData.u32RxTime_ms = u32TickCount_ms;
+
   int i;
   static uint16 u16seqPrev = 0xFFFF;
 
@@ -234,7 +243,10 @@ void cbToCoNet_vRxEvent(tsRxDataApp *pRx) {
  * @param u8CbId
  * @param bStatus
  */
-void cbToCoNet_vTxEvent(uint8 u8CbId, uint8 bStatus) { return; }
+void cbToCoNet_vTxEvent(uint8 u8CbId, uint8 bStatus) {
+  // latest send time
+  sAppData.u32TxTime_ms = u32TickCount_ms;
+}
 
 /**
  * HwEvent
@@ -244,17 +256,19 @@ void cbToCoNet_vTxEvent(uint8 u8CbId, uint8 bStatus) { return; }
  */
 void cbToCoNet_vHwEvent(uint32 u32DeviceId, uint32 u32ItemBitmap) {
   switch (u32DeviceId) {
-    case E_AHI_DEVICE_TICK_TIMER:
-      // LED blink
-      vPortSet_TrueAsLo(PORT_KIT_LED2, u32TickCount_ms & 0x400);
+    case E_AHI_DEVICE_TICK_TIMER: {
+      // RX status LED
+      bool_t isRxTimeout =
+          u32TickCount_ms > sAppData.u32RxTime_ms + 100;  // 100ms
+      vAHI_DioSetOutput(isRxTimeout ? (1UL << STATUS_LED_RED_DIO) : 0x00,
+                        !isRxTimeout ? (1UL << STATUS_LED_RED_DIO) : 0x00);
 
-      // LED on when receive
-      if (u32TickCount_ms - sAppData.u32LedCt < 300) {
-        vPortSetLo(PORT_KIT_LED1);
-      } else {
-        vPortSetHi(PORT_KIT_LED1);
-      }
-      break;
+      // TX status LED
+      bool_t isTxTimeout =
+          u32TickCount_ms > sAppData.u32TxTime_ms + 100;  // 100ms
+      vAHI_DoSetDataOut(isTxTimeout ? (1UL << STATUS_LED_YELLOW_DO) : 0x00,
+                        !isTxTimeout ? (1UL << STATUS_LED_YELLOW_DO) : 0x00);
+    } break;
 
     default:
       break;
@@ -293,14 +307,16 @@ static void vInitHardware(int f_warm_start) {
   vSerialInit(UART_BAUD, NULL);
 #endif
 
+  // Debug
   ToCoNet_vDebugInit(&sSerStream);
   ToCoNet_vDebugLevel(0);
 
   // GPIO initialize
-  vPortSetLo(PORT_KIT_LED1);
-  vPortSetHi(PORT_KIT_LED2);
-  vPortAsOutput(PORT_KIT_LED1);
-  vPortAsOutput(PORT_KIT_LED2);
+  vAHI_DioSetDirection(0x00, 1UL << STATUS_LED_RED_DIO);
+  vAHI_DioSetOutput(0x00, 1UL << STATUS_LED_RED_DIO);
+
+  bAHI_DoEnableOutputs(TRUE);
+  vAHI_DoSetDataOut(0x00, 1UL << STATUS_LED_YELLOW_DO);
 }
 
 /**
