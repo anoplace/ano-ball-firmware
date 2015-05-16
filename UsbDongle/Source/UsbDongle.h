@@ -1,10 +1,10 @@
 /**
- * @file PingPong.h
+ * @file UsbDongle.h
  * @author Yuuki Taguchi
  */
 
-#ifndef PINGPONG_PINGPONG_H_
-#define PINGPONG_PINGPONG_H_
+#ifndef USBDONGLE_USBDONGLE_H_
+#define USBDONGLE_USBDONGLE_H_
 
 #if defined __cplusplus
 extern "C" {
@@ -16,4 +16,4 @@ extern "C" {
 }
 #endif
 
-#endif /* PINGPONG_PINGPONG_H_ */
+#endif /* USBDONGLE_USBDONGLE_H_ */
