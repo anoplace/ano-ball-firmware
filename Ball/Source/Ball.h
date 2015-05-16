@@ -1,10 +1,10 @@
 /**
- * @file PingPong.h
+ * @file Ball.h
  * @author Yuuki Taguchi
  */
 
-#ifndef PINGPONG_PINGPONG_H_
-#define PINGPONG_PINGPONG_H_
+#ifndef BALL_BALL_H_
+#define BALL_BALL_H_
 
 #if defined __cplusplus
 extern "C" {
@@ -16,4 +16,4 @@ extern "C" {
 }
 #endif
 
-#endif /* PINGPONG_PINGPONG_H_ */
+#endif /* BALL_BALL_H_ */

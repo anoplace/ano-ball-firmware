@@ -1,5 +1,5 @@
 /**
- * @file PingPong.c
+ * @file Ball.c
  * @author Yuuki Taguchi
  */
 
@@ -10,7 +10,7 @@
 
 #include "utils.h"
 
-#include "PingPong.h"
+#include "Ball.h"
 #include "config.h"
 #include "Version.h"
 
