@@ -159,7 +159,6 @@ void cbToCoNet_vRxEvent(tsRxDataApp *pRx) {
   // latest receive time
   sAppData.u32RxTime_ms = u32TickCount_ms;
 
-  int i;
   static uint16 u16seqPrev = 0xFFFF;
 
   // print coming payload
@@ -170,7 +169,7 @@ void cbToCoNet_vRxEvent(tsRxDataApp *pRx) {
           4,  // actual payload byte: the network layer uses additional 4 bytes.
       pRx->u8Seq,
       pRx->u8Lqi, pRx->u32Tick & 0xFFFF);
-  for (i = 0; i < pRx->u8Len; i++) {
+  for (int i = 0; i < pRx->u8Len; i++) {
     if (i < 32) {
       sSerStream.bPutChar(sSerStream.u8Device,
                           (pRx->auData[i] >= 0x20 && pRx->auData[i] <= 0x7f)
