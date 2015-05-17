@@ -60,9 +60,6 @@ static tsAppData sAppData;
 PUBLIC tsFILE sSerStream;
 tsSerialPortSetup sSerPort;
 
-// Wakeup port
-const uint32 u32DioPortWakeUp = 1UL << 7;  // UART Rx Port
-
 /**
  * AppColdStart
  * @param bAfterAhiInit
@@ -369,38 +366,6 @@ static void vHandleSerialInput(void) {
         ToCoNet_vDebugLevel(u8DgbLvl);
 
         vfPrintf(&sSerStream, "set NwkCode debug level to %d.", u8DgbLvl);
-      } break;
-
-      case 's':
-      case 'S': {  // sleep test
-        // print message.
-        sAppData.u8SleepCt++;
-
-        // stop interrupt source, if interrupt source is still running.
-
-        vfPrintf(&sSerStream, "now sleeping" LB);
-        SERIAL_vFlush(sSerStream.u8Device);  // flushing
-
-        if (i16Char == 's') {
-          vAHI_UartDisable(sSerStream.u8Device);
-        }
-
-        // set UART Rx port as interrupt source
-        vAHI_DioSetDirection(u32DioPortWakeUp, 0);  // set as input
-
-        (void)u32AHI_DioInterruptStatus();        // clear interrupt register
-        vAHI_DioWakeEnable(u32DioPortWakeUp, 0);  // also use as DIO WAKE SOURCE
-        // vAHI_DioWakeEdge(0, PORT_INPUT_MASK); //
-        // 割り込みエッジ（立下りに設定）
-        vAHI_DioWakeEdge(u32DioPortWakeUp,
-                         0);  // 割り込みエッジ（立上がりに設定）
-        // vAHI_DioWakeEnable(0, PORT_INPUT_MASK); // DISABLE DIO WAKE SOURCE
-
-        // wake up using wakeup timer as well.
-        // ToCoNet_vSleep(E_AHI_WAKE_TIMER_0, 0, FALSE, TRUE); // RAM OFF
-        // SLEEP USING WK0
-        ToCoNet_vSleep(E_AHI_WAKE_TIMER_0, 0, FALSE,
-                       FALSE);  // RAM ON SLEEP USING WK0
       } break;
 
       case 'p': {                // RF power
