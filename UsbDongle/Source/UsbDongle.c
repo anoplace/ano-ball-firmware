@@ -34,9 +34,6 @@ typedef struct {
   uint8 u8channel;
   uint16 u16addr;
 
-  /** LED Counter */
-  uint32 u32LedCt;
-
   /** sequence number */
   uint32 u32Seq;
 
@@ -228,9 +225,6 @@ void cbToCoNet_vRxEvent(tsRxDataApp *pRx) {
     tsTx.auData[1] = 'O';  // メッセージを PONG に書き換える
 
     ToCoNet_bMacTxReq(&tsTx);
-
-    // turn on LED a while
-    sAppData.u32LedCt = u32TickCount_ms;
 
     // UARTに出力
     vfPrintf(&sSerStream, LB "Fire PONG Message to %08x" LB, pRx->u32SrcAddr);
@@ -456,9 +450,6 @@ static void vHandleSerialInput(void) {
 
         // send
         ToCoNet_bMacTxReq(&tsTx);
-
-        // LED control
-        sAppData.u32LedCt = u32TickCount_ms;
 
         // output to UART
         vfPrintf(&sSerStream, LB "Fire PING Broadcast Message.");
