@@ -368,16 +368,6 @@ static void vHandleSerialInput(void) {
         vfPrintf(&sSerStream, "set NwkCode debug level to %d.", u8DgbLvl);
       } break;
 
-      case 'p': {                // RF power
-        static uint8 u8pow = 3;  // (MIN)0..3(MAX)
-
-        u8pow = (u8pow + 1) % 4;
-        vfPrintf(&sSerStream, "set power to %d.", u8pow);
-
-        sToCoNet_AppContext.u8TxPower = u8pow;
-        ToCoNet_vRfConfig();
-      } break;
-
       case 't': {  // send packet
         // transmit Ack back
         tsTxDataApp tsTx;
