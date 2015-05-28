@@ -49,13 +49,16 @@ static void vProcessEvCore(tsEvent *pEv, teEvent eEvent, uint32 u32evarg);
 static void vInitHardware(int f_warm_start);
 
 void vSerialInit(uint32 u32Baud, tsUartOpt *pUartOpt);
+void vSerialInit2(uint32 u32Baud, tsUartOpt *pUartOpt);
 static void vHandleSerialInput(void);
 
 /* Local data used by the tag during operation */
 static tsAppData sAppData;
 
 PUBLIC tsFILE sSerStream;
+PUBLIC tsFILE sSerStream2;
 tsSerialPortSetup sSerPort;
+tsSerialPortSetup sSerPort2;
 
 // Wakeup port
 const uint32 u32DioPortWakeUp = 1UL << 7;  // UART Rx Port
@@ -246,13 +249,13 @@ void cbToCoNet_vHwEvent(uint32 u32DeviceId, uint32 u32ItemBitmap) {
   switch (u32DeviceId) {
     case E_AHI_DEVICE_TICK_TIMER:
       // LED blink
-      vPortSet_TrueAsLo(PORT_KIT_LED2, u32TickCount_ms & 0x400);
+      // vPortSet_TrueAsLo(PORT_KIT_LED2, u32TickCount_ms & 0x400);
 
       // LED on when receive
       if (u32TickCount_ms - sAppData.u32LedCt < 300) {
-        vPortSetLo(PORT_KIT_LED1);
+        // vPortSetLo(PORT_KIT_LED1);
       } else {
-        vPortSetHi(PORT_KIT_LED1);
+        // vPortSetHi(PORT_KIT_LED1);
       }
       break;
 
@@ -280,6 +283,7 @@ uint8 cbToCoNet_u8HwInt(uint32 u32DeviceId, uint32 u32ItemBitmap) {
 static void vInitHardware(int f_warm_start) {
 // serial initialize
 #if 0
+    /*
 	tsUartOpt sUartOpt;
 	memset(&sUartOpt, 0, sizeof(tsUartOpt));
 	sUartOpt.bHwFlowEnabled = FALSE;
@@ -289,18 +293,20 @@ static void vInitHardware(int f_warm_start) {
 	sUartOpt.u8WordLen = 7;
 
 	vSerialInit(UART_BAUD, &sUartOpt);
+	*/
 #else
   vSerialInit(UART_BAUD, NULL);
+  vSerialInit2(9600, NULL);
 #endif
 
   ToCoNet_vDebugInit(&sSerStream);
   ToCoNet_vDebugLevel(0);
 
   // GPIO initialize
-  vPortSetLo(PORT_KIT_LED1);
-  vPortSetHi(PORT_KIT_LED2);
-  vPortAsOutput(PORT_KIT_LED1);
-  vPortAsOutput(PORT_KIT_LED2);
+  // vPortSetLo(PORT_KIT_LED1);
+  // vPortSetHi(PORT_KIT_LED2);
+  // vPortAsOutput(PORT_KIT_LED1);
+  // vPortAsOutput(PORT_KIT_LED2);
 }
 
 /**
@@ -312,6 +318,8 @@ void vSerialInit(uint32 u32Baud, tsUartOpt *pUartOpt) {
   /* create the debug port transmit and receive queues */
   static uint8 au8SerialTxBuffer[96];
   static uint8 au8SerialRxBuffer[32];
+
+  vAHI_UartSetLocation(UART_PORT_SLAVE, FALSE);
 
   /* initialise the serial port to be used for debug output */
   sSerPort.pu8SerialRxQueueBuffer = au8SerialRxBuffer;
@@ -330,9 +338,47 @@ void vSerialInit(uint32 u32Baud, tsUartOpt *pUartOpt) {
 }
 
 /**
+ * SerialInit
+ * @param u32Baud
+ * @param pUartOpt
+ */
+void vSerialInit2(uint32 u32Baud, tsUartOpt *pUartOpt) {
+  /* create the debug port transmit and receive queues */
+  static uint8 au8SerialTxBuffer[96];
+  static uint8 au8SerialRxBuffer[32];
+
+  vAHI_UartSetLocation(E_AHI_UART_1, TRUE);
+
+  /* initialise the serial port to be used for debug output */
+  sSerPort2.pu8SerialRxQueueBuffer = au8SerialRxBuffer;
+  sSerPort2.pu8SerialTxQueueBuffer = au8SerialTxBuffer;
+  sSerPort2.u32BaudRate = u32Baud;
+  sSerPort2.u16AHI_UART_RTS_LOW = 0xffff;
+  sSerPort2.u16AHI_UART_RTS_HIGH = 0xffff;
+  sSerPort2.u16SerialRxQueueSize = sizeof(au8SerialRxBuffer);
+  sSerPort2.u16SerialTxQueueSize = sizeof(au8SerialTxBuffer);
+  sSerPort2.u8SerialPort = E_AHI_UART_1;
+  sSerPort2.u8RX_FIFO_LEVEL = E_AHI_UART_FIFO_LEVEL_1;
+  SERIAL_vInitEx(&sSerPort2, pUartOpt);
+
+  sSerStream2.bPutChar = SERIAL_bTxChar;
+  sSerStream2.u8Device = E_AHI_UART_1;
+}
+
+/**
  * HandleSerialInput
  */
 static void vHandleSerialInput(void) {
+  // handle UART command
+  while (!SERIAL_bRxQueueEmpty(sSerPort2.u8SerialPort)) {
+    int16 i16Char;
+
+    i16Char = SERIAL_i16RxChar(sSerPort2.u8SerialPort);
+
+    vfPrintf(&sSerStream, "\n\r# lpr9201 [0x%02X]", i16Char);
+    SERIAL_vFlush(sSerStream.u8Device);
+  }
+
   // handle UART command
   while (!SERIAL_bRxQueueEmpty(sSerPort.u8SerialPort)) {
     int16 i16Char;
@@ -343,6 +389,24 @@ static void vHandleSerialInput(void) {
     SERIAL_vFlush(sSerStream.u8Device);
 
     switch (i16Char) {
+      case 'a': {
+        uint8 data[] = {0x5A, 0xA5, 0x00, 0x00, 0xFF};
+        for (int i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
+          vPutChar(&sSerStream2, data[i]);
+        }
+
+        vfPrintf(&sSerStream, "\n\r# sended!");
+      } break;
+
+      case 'b': {
+        uint8 data[] = {0x5A, 0xA5, 0x0B, 0x00, 0xF4};
+        for (int i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
+          vPutChar(&sSerStream2, data[i]);
+        }
+
+        vfPrintf(&sSerStream, "\n\r# sended!");
+      } break;
+
       case '>':
       case '.': {  // channel up
         sAppData.u8channel++;
