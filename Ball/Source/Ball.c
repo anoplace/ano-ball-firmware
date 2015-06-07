@@ -30,6 +30,7 @@
 #include "app_event.h"
 
 #include "SMBus.h"
+#include "lpr9201.h"
 
 typedef struct {
   // MAC
@@ -54,6 +55,9 @@ void vSerialInit(uint32 u32Baud, tsUartOpt *pUartOpt);
 void vSerialInit2(uint32 u32Baud, tsUartOpt *pUartOpt);
 static void vHandleSerialInput(void);
 
+
+void lpr9201Send(uint8 *data, int length);
+
 /* Local data used by the tag during operation */
 static tsAppData sAppData;
 
@@ -66,6 +70,8 @@ tsSerialPortSetup sSerPort2;
 const uint32 u32DioPortWakeUp = 1UL << 7;  // UART Rx Port
 
 uint8 slaveAddrs[] = {0x7F, 0x7E, 0x7D};
+uint8 slaveAddr = 0x7F;
+Result lpr9201Result;
 
 /**
  * AppColdStart
@@ -102,6 +108,14 @@ void cbAppColdStart(bool_t bAfterAhiInit) {
 
     // Register
     ToCoNet_Event_Register_State_Machine(vProcessEvCore);
+
+
+    //
+    memset(&lpr9201Result, 0, sizeof(lpr9201Result));
+    lpr9201_parser_init(&lpr9201Result);
+    //
+
+
 
     // Others
     vInitHardware(FALSE);
@@ -300,7 +314,7 @@ static void vInitHardware(int f_warm_start) {
 	*/
 #else
   vSerialInit(UART_BAUD, NULL);
-  vSerialInit2(9600, NULL);
+  vSerialInit2(230400, NULL);
 #endif
 
   ToCoNet_vDebugInit(&sSerStream);
@@ -312,9 +326,9 @@ static void vInitHardware(int f_warm_start) {
   // vPortAsOutput(PORT_KIT_LED1);
   // vPortAsOutput(PORT_KIT_LED2);
 
+
+
   vSMBusInit();
-
-
 
   // pca9685
   for (int i = 0; i < sizeof(slaveAddrs) / sizeof(slaveAddrs[0]); i++) {
@@ -327,28 +341,30 @@ static void vInitHardware(int f_warm_start) {
       bSMBusSequentialRead(slaveAddr, sizeof(data) / sizeof(data[0]), data);
     }
 
-    vWait(10000);  // 10ms
-
     {
       // MODE1レジスタを設定
       bSMBusWrite(slaveAddr, 0x00, 0, NULL);
 
       uint8 data[1] = {0xA0};
       bSMBusWrite(slaveAddr, 0x00, sizeof(data) / sizeof(data[0]), data);
-      //vfPrintf(&sSerStream, "\n\r# SMBus write mode1: 0x%02X", data[0]);
+      // vfPrintf(&sSerStream, "\n\r# SMBus write mode1: 0x%02X", data[0]);
     }
-
-    vWait(10000);  // 10ms
 
     {
       // MODE2レジスタを設定
       uint8 data[1] = {0x04};
       bSMBusWrite(slaveAddr, 0x01, sizeof(data) / sizeof(data[0]), data);
-      //vfPrintf(&sSerStream, "\n\r# SMBus write mode2: 0x%02X", data[0]);
+      // vfPrintf(&sSerStream, "\n\r# SMBus write mode2: 0x%02X", data[0]);
     }
   }
 
+  vWait(1000 * 10000);
 
+  {
+    // lpr9201を起動
+    uint8 data[] = {0x5A, 0xA5, 0x0B, 0x00, 0xF4};
+    lpr9201Send(data, sizeof(data) / sizeof(data[0]));
+  }
 }
 
 /**
@@ -387,7 +403,7 @@ void vSerialInit(uint32 u32Baud, tsUartOpt *pUartOpt) {
 void vSerialInit2(uint32 u32Baud, tsUartOpt *pUartOpt) {
   /* create the debug port transmit and receive queues */
   static uint8 au8SerialTxBuffer[96];
-  static uint8 au8SerialRxBuffer[32];
+  static uint8 au8SerialRxBuffer[96];
 
   vAHI_UartSetLocation(E_AHI_UART_1, TRUE);
 
@@ -407,63 +423,119 @@ void vSerialInit2(uint32 u32Baud, tsUartOpt *pUartOpt) {
   sSerStream2.u8Device = E_AHI_UART_1;
 }
 
+uint8 color[] = {
+  0x00, 0x00, 0x00, 0x00, //
+  0x00, 0x00, 0x00, 0x00, //
+  0x00, 0x00, 0x00, 0x00, //
+  0x00, 0x00, 0x00, 0x00, //
+
+  0x00, 0x00, 0x00, 0x00, //
+  0x00, 0x00, 0x00, 0x00, //
+  0x00, 0x00, 0x00, 0x00, //
+  0x00, 0x00, 0x00, 0x00, //
+
+  0x00, 0x00, 0x00, 0x00, //
+  0x00, 0x00, 0x00, 0x00, //
+  0x00, 0x00, 0x00, 0x00, //
+  0x00, 0x00, 0x00, 0x00, //
+
+  0x00, 0x00, 0x00, 0x00, //
+  0x00, 0x00, 0x00, 0x00, //
+  0x00, 0x00, 0x00, 0x00, //
+  0x00, 0x00, 0x00, 0x00, //
+};
+
+void colorApply2(uint8 index, uint8 *datas, uint8 offset) {
+  color[2 + 4 * 0] = datas[offset + 0];
+  color[2 + 4 * 1] = datas[offset + 1];
+  color[2 + 4 * 2] = datas[offset + 2];
+  color[2 + 4 * 3] = 0x00;
+
+  color[2 + 4 * 4] = datas[offset + 3];
+  color[2 + 4 * 5] = datas[offset + 4];
+  color[2 + 4 * 6] = datas[offset + 5];
+  color[2 + 4 * 7] = 0x00;
+
+  color[2 + 4 * 8] = datas[offset + 6];
+  color[2 + 4 * 9] = datas[offset + 7];
+  color[2 + 4 * 10] = datas[offset + 8];
+  color[2 + 4 * 11] = 0x00;
+
+  color[2 + 4 * 12] = datas[offset + 9];
+  color[2 + 4 * 13] = datas[offset + 10];
+  color[2 + 4 * 14] = datas[offset + 11];
+  color[2 + 4 * 15] = 0x00;
+
+  bSMBusWrite(slaveAddrs[index], 0x06, sizeof(color) / sizeof(color[0]), color);
+  vfPrintf(&sSerStream, "\n\r# SMBus write led1 on: %d", color[0]);
+}
+
+void colorApply(uint8 index, uint8 red, uint8 green, uint8 blue) {
+  uint8 data[] = {
+    0x00, 0x00, blue, 0x00,
+    0x00, 0x00, red, 0x00,
+    0x00, 0x00, green, 0x00,
+    0x00, 0x00, 0x00, 0x00,
+  };
+
+  uint8 slaveAddrIndex = 0;
+
+  if (0 <= index && index <= 3) {
+    slaveAddrIndex = 0;
+
+  } else if (4 <= index && index <= 7) {
+    slaveAddrIndex = 1;
+
+  } else if (8 <= index && index <= 11) {
+    slaveAddrIndex = 2;
+
+  }
+
+  bSMBusWrite(slaveAddrs[slaveAddrIndex], 0x06 + (index % 4) * 4, sizeof(data) / sizeof(data[0]), data);
+  vfPrintf(&sSerStream, "\n\r# SMBus write chip:0x%02X led:%d", slaveAddrs[slaveAddrIndex], index);
+  SERIAL_vFlush(sSerStream.u8Device);
+
+  vWait(10000);
+}
+
+void lpr9201Send(uint8 *data, int length) {
+  for (int i = 0; i < length; i++) {
+    vPutChar(&sSerStream2, data[i]);
+  }
+
+  vfPrintf(&sSerStream, "\n\r# sended!");
+}
+
 /**
  * HandleSerialInput
  */
-
-bool_t flag = FALSE;
-uint8 colors[64] = {
-  0x65, 0x0E, 0xCB, 0x0C,
-  0x65, 0x0E, 0xCB, 0x0C,
-  0x65, 0x0E, 0xCB, 0x0C,
-  0x65, 0x0E, 0xCB, 0x0C,
-
-  0x65, 0x0E, 0xCB, 0x0C,
-  0x65, 0x0E, 0xCB, 0x0C,
-  0x65, 0x0E, 0xCB, 0x0C,
-  0x65, 0x0E, 0xCB, 0x0C,
-
-  0x65, 0x0E, 0xCB, 0x0C,
-  0x65, 0x0E, 0xCB, 0x0C,
-  0x65, 0x0E, 0xCB, 0x0C,
-  0x65, 0x0E, 0xCB, 0x0C,
-  
-  0x65, 0x0E, 0xCB, 0x0C,
-  0x65, 0x0E, 0xCB, 0x0C,
-  0x65, 0x0E, 0xCB, 0x0C,
-  0x65, 0x0E, 0xCB, 0x0C,
-};
-
-uint8 colors2[64] = {
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-  
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00,
-};
-
 static void vHandleSerialInput(void) {
   // handle UART command
   while (!SERIAL_bRxQueueEmpty(sSerPort2.u8SerialPort)) {
-    int16 i16Char;
-
-    i16Char = SERIAL_i16RxChar(sSerPort2.u8SerialPort);
+    int16 i16Char = SERIAL_i16RxChar(sSerPort2.u8SerialPort);
 
     vfPrintf(&sSerStream, "\n\r# lpr9201 [0x%02X]", i16Char);
+    SERIAL_vFlush(sSerStream.u8Device);
+
+    if (lpr9201_parser_parse(i16Char, &lpr9201Result) && lpr9201Result.resultCode == 0x83) { // dataのみ
+      vfPrintf(&sSerStream, "\n\r# lpr9201 success parse");
+
+      for (int i = lpr9201Result.dataOffset; i < lpr9201Result.dataOffset + lpr9201Result.dataLength; i++) {
+        vfPrintf(&sSerStream, "\n\r# lpr9201 parsed [0x%02X]", lpr9201Result.receiveData[i]);
+        SERIAL_vFlush(sSerStream.u8Device);
+      }
+
+      vfPrintf(&sSerStream, "\n\r# lpr9201 length: %d", lpr9201Result.dataLength);
+      SERIAL_vFlush(sSerStream.u8Device);
+
+      if (lpr9201Result.dataLength >= 36) {//FIXME
+
+        for (int i = 0; i < sizeof(slaveAddrs) / sizeof(slaveAddrs[0]); i++) {
+          colorApply2(i, lpr9201Result.receiveData, lpr9201Result.dataOffset + 12 * i);
+        }
+      }
+    }
+
     SERIAL_vFlush(sSerStream.u8Device);
   }
 
@@ -471,20 +543,9 @@ static void vHandleSerialInput(void) {
   while (!SERIAL_bRxQueueEmpty(sSerPort.u8SerialPort)) {
     int16 i16Char = SERIAL_i16RxChar(sSerPort.u8SerialPort);
 
-    for (int i = 0; i < sizeof(slaveAddrs) / sizeof(slaveAddrs[0]); i++) {
-      uint8 slaveAddr = slaveAddrs[i];
-
-      if (flag) {
-        bSMBusWrite(slaveAddr, 0x06, sizeof(colors) / sizeof(colors[0]), colors);
-      } else {
-        bSMBusWrite(slaveAddr, 0x06, sizeof(colors2) / sizeof(colors2[0]), colors2);
-      }
-    }
-
     vfPrintf(&sSerStream, "\n\r# [%c] --> ", i16Char);
     SERIAL_vFlush(sSerStream.u8Device);
 
-    /*
 #define SMBUS_ADDR 0x77
 #define A_RESET 0x1E
 #define A_CONVERT_D1_L1 0x40
@@ -503,34 +564,75 @@ static void vHandleSerialInput(void) {
     switch (i16Char) {
       case 'a': {
         uint8 data[] = {0x5A, 0xA5, 0x00, 0x00, 0xFF};
-        for (int i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
-          vPutChar(&sSerStream2, data[i]);
-        }
+        lpr9201Send(data, sizeof(data) / sizeof(data[0]));
 
-        vfPrintf(&sSerStream, "\n\r# sended!");
+        vfPrintf(&sSerStream, "\n\r# connectionConfirmation sended!");
       } break;
 
       case 'b': {
         uint8 data[] = {0x5A, 0xA5, 0x0B, 0x00, 0xF4};
-        for (int i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
-          vPutChar(&sSerStream2, data[i]);
-        }
+        lpr9201Send(data, sizeof(data) / sizeof(data[0]));
 
-        vfPrintf(&sSerStream, "\n\r# sended!");
+        vfPrintf(&sSerStream, "\n\r# activate sended!");
       } break;
 
-      case 'c': {
-        vSMBusInit();
+      case 'd': {
+        // baton reset
+        uint8 data[] = {0x5a, 0xa5, 0x7f, 0x00, 0x80};
+        lpr9201Send(data, sizeof(data) / sizeof(data[0]));
+        vWait(10 * 10000);
 
+        // baton parameter reset
+        uint8 data2[] = {0x5a, 0xa5, 0x08, 0x00, 0xf7};
+        lpr9201Send(data2, sizeof(data2) / sizeof(data2[0]));
+        vWait(10 * 10000);
+
+        // baton profile write 0
+        uint8 data3[] = {0x5a, 0xa5, 0x06, 0x01, 0x00, 0xf8};
+        lpr9201Send(data3, sizeof(data3) / sizeof(data3[0]));
+        vWait(10 * 10000);
+
+        // baton profile write 1
+        uint8 data4[] = {0x5a, 0xa5, 0x06, 0x01, 0x01, 0xf9};
+        lpr9201Send(data4, sizeof(data4) / sizeof(data4[0]));
+        vWait(10 * 10000);
+
+        // baton parameter write 2 1 # ショートアドレス
+        uint8 data5[] = {0x5a, 0xa5, 0x02, 0x03, 0x02, 0x00, 0x01, 0xfd};
+        lpr9201Send(data5, sizeof(data5) / sizeof(data5[0]));
+        vWait(10 * 10000);
+
+        // baton parameter write 3 33 # チャンネル
+        uint8 data6[] = {0x5a, 0xa5, 0x2, 0x2, 0x3, 0x21, 0xdd};
+        lpr9201Send(data6, sizeof(data6) / sizeof(data6[0]));
+        vWait(10 * 10000);
+
+        //baton parameter write 7 1  # NACK
+
+        // baton parameter write 10 1 # ブロードキャストON
+        uint8 data7[] = {0x5a, 0xa5, 0x02, 0x02, 0x0a, 0x01, 0xf4};
+        lpr9201Send(data7, sizeof(data7) / sizeof(data7[0]));
+        vWait(10 * 10000);
+
+        // baton parameter write 20 2 # 受信通知
+        uint8 data8[] = {0x5a, 0xa5, 0x02, 0x02, 0x14, 0x02, 0xe9};
+        lpr9201Send(data8, sizeof(data8) / sizeof(data8[0]));
+        vWait(10 * 10000);
+
+        // baton profile write 0
+        uint8 data9[] = {0x5a, 0xa5, 0x06, 0x01, 0x00, 0xf8};
+        lpr9201Send(data9, sizeof(data9) / sizeof(data9[0]));
+      } break;
+
+      case 'e': {
+        // ボーレートを書き換え
+        uint8 data[] = {0x5a, 0xa5, 0x02, 0x02, 0x08, 0x05, 0xf2};
+        lpr9201Send(data, sizeof(data) / sizeof(data[0]));
       } break;
 
       //////
 
-      case 'd': {
-        bSMBusWrite(SMBUS_ADDR, A_RESET, 0, NULL);
-        vfPrintf(&sSerStream, "\n\r# SMBus reset");
-      } break;
-
+      /*
       case 'e': {
         uint16 data[8] = {};
 
@@ -544,10 +646,12 @@ static void vHandleSerialInput(void) {
 
           data[i] = (d[1] << 8) | d[0];
 
-          vfPrintf(&sSerStream, "\n\r#uint16_t c%d = 0x%04X; // %d", i, data[i], data[i]);
+          vfPrintf(&sSerStream, "\n\r#uint16_t c%d = 0x%04X; // %d", i, data[i],
+                   data[i]);
           SERIAL_vFlush(sSerStream.u8Device);
         }
       } break;
+      */
 
       case 'f': {
         bSMBusWrite(SMBUS_ADDR, A_CONVERT_D1_L5, 0, NULL);
@@ -574,27 +678,138 @@ static void vHandleSerialInput(void) {
 
       //////
 
+      case 'i': {
+        for (int i = 0 ; i < 12; i++) {
+          colorApply(i, 100, 0, 0);
+          vWait(1000 * 1000);
+          colorApply(i, 0, 0, 0);
+          vWait(1000 * 1000);
+        }
+      } break;
+      /*
+            case 'i': {
+              // MODE1レジスタを読み込む
+              uint8 data[1] = {};
+              bSMBusWrite(slaveAddr, 0x00, 0, NULL);
+              bSMBusSequentialRead(slaveAddr, sizeof(data) / sizeof(data[0]),
+         data);
+              vfPrintf(&sSerStream, "\n\r# SMBus read mode1: 0x%02X", data[0]);
+            } break;
+
+            case 'j': {
+              // MODE1レジスタを設定
+              bSMBusWrite(slaveAddr, 0x00, 0, NULL);
+
+              uint8 data[1] = {0xA0};
+              bSMBusWrite(slaveAddr, 0x00, sizeof(data) / sizeof(data[0]),
+         data);
+              vfPrintf(&sSerStream, "\n\r# SMBus write mode1: 0x%02X", data[0]);
+            } break;
+
+            case 'k': {
+              // MODE1レジスタを読み込む
+              uint8 data[1] = {};
+              bSMBusWrite(slaveAddr, 0x01, 0, NULL);
+              bSMBusSequentialRead(slaveAddr, sizeof(data) / sizeof(data[0]),
+         data);
+              vfPrintf(&sSerStream, "\n\r# SMBus read mode1: 0x%02X", data[0]);
+            } break;
+
+            case 'l': {
+              // MODE2レジスタを設定
+              uint8 data[1] = {0x04};
+              bSMBusWrite(slaveAddr, 0x01, sizeof(data) / sizeof(data[0]),
+         data);
+              vfPrintf(&sSerStream, "\n\r# SMBus write mode2: 0x%02X", data[0]);
+            } break;
+      */
+
+      case '1': {
+        slaveAddr = slaveAddrs[0];
+      } break;
+
+      case '2': {
+        slaveAddr = slaveAddrs[1];
+      } break;
+
+      case '3': {
+        slaveAddr = slaveAddrs[2];
+      } break;
+
+      case 'l': {
+        uint8 data[] = {
+            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+
+            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+
+            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+
+            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+        };
+        bSMBusWrite(slaveAddr, 0x06, sizeof(data) / sizeof(data[0]), data);
+        vfPrintf(&sSerStream, "\n\r# SMBus write led1 on: %d", data[0]);
+      } break;
+
+      case 'm': {
+        uint8 data[] = {
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+        };
+        bSMBusWrite(slaveAddr, 0x06, sizeof(data) / sizeof(data[0]), data);
+        vfPrintf(&sSerStream, "\n\r# SMBus write led1 on: %d", data[0]);
+      } break;
+
       case 'n': {
         uint8 data[] = {
-          0x99, 0x01, 0xCC, 0x04,
-          0x99, 0x01, 0xCC, 0x04,
-          0x99, 0x01, 0xCC, 0x04,
-          0x99, 0x01, 0xCC, 0x04,
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
 
-          0x99, 0x01, 0xCC, 0x04,
-          0x99, 0x01, 0xCC, 0x04,
-          0x99, 0x01, 0xCC, 0x04,
-          0x99, 0x01, 0xCC, 0x04,
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
 
-          0x99, 0x01, 0xCC, 0x04,
-          0x99, 0x01, 0xCC, 0x04,
-          0x99, 0x01, 0xCC, 0x04,
-          0x99, 0x01, 0xCC, 0x04,
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
 
-          0x99, 0x01, 0xCC, 0x04,
-          0x99, 0x01, 0xCC, 0x04,
-          0x99, 0x01, 0xCC, 0x04,
-          0x99, 0x01, 0xCC, 0x04,
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+
         };
         bSMBusWrite(slaveAddr, 0x06, sizeof(data) / sizeof(data[0]), data);
         vfPrintf(&sSerStream, "\n\r# SMBus write led1 on: %d", data[0]);
@@ -602,314 +817,135 @@ static void vHandleSerialInput(void) {
 
       case 'o': {
         uint8 data[] = {
-          0x65, 0x0E, 0xCB, 0x0C,
-          0x65, 0x0E, 0xCB, 0x0C,
-          0x65, 0x0E, 0xCB, 0x0C,
-          0x65, 0x0E, 0xCB, 0x0C,
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
 
-          0x65, 0x0E, 0xCB, 0x0C,
-          0x65, 0x0E, 0xCB, 0x0C,
-          0x65, 0x0E, 0xCB, 0x0C,
-          0x65, 0x0E, 0xCB, 0x0C,
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
 
-          0x65, 0x0E, 0xCB, 0x0C,
-          0x65, 0x0E, 0xCB, 0x0C,
-          0x65, 0x0E, 0xCB, 0x0C,
-          0x65, 0x0E, 0xCB, 0x0C,
-          
-          0x65, 0x0E, 0xCB, 0x0C,
-          0x65, 0x0E, 0xCB, 0x0C,
-          0x65, 0x0E, 0xCB, 0x0C,
-          0x65, 0x0E, 0xCB, 0x0C,
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
+            0x00, 0x00, 0x00, 0x00, //
         };
         bSMBusWrite(slaveAddr, 0x06, sizeof(data) / sizeof(data[0]), data);
         vfPrintf(&sSerStream, "\n\r# SMBus write led1 off: %d", data[0]);
       } break;
 
-      case 'p': {
-        uint8 data[] = {
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
+      /*
+            case '>':
+            case '.': {  // channel up
+              sAppData.u8channel++;
+              if (sAppData.u8channel > 26) sAppData.u8channel = 11;
+              sToCoNet_AppContext.u8Channel = sAppData.u8channel;
+              ToCoNet_vRfConfig();
+              vfPrintf(&sSerStream, "set channel to %d.", sAppData.u8channel);
+            } break;
 
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
+            case '<':
+            case ',': {  // channel down
+              sAppData.u8channel--;
+              if (sAppData.u8channel < 11) sAppData.u8channel = 26;
+              sToCoNet_AppContext.u8Channel = sAppData.u8channel;
+              ToCoNet_vRfConfig();
+              vfPrintf(&sSerStream, "set channel to %d.", sAppData.u8channel);
+            } break;
 
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
+            case 'D': {
+              static uint8 u8DgbLvl;
 
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-        };
-        bSMBusWrite(slaveAddr, 0x06, sizeof(data) / sizeof(data[0]), data);
-        vfPrintf(&sSerStream, "\n\r# SMBus write led1 on: %d", data[0]);
-      } break;
+              u8DgbLvl++;
+              if (u8DgbLvl > 5) u8DgbLvl = 0;
+              ToCoNet_vDebugLevel(u8DgbLvl);
 
-      case 'q': {
-        uint8 data[] = {
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
+              vfPrintf(&sSerStream, "set NwkCode debug level to %d.", u8DgbLvl);
+            } break;
 
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
+            case 'S': {  // sleep test
+              // print message.
+              sAppData.u8SleepCt++;
 
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
+              // stop interrupt source, if interrupt source is still running.
 
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-        };
-        bSMBusWrite(slaveAddr, 0x06, sizeof(data) / sizeof(data[0]), data);
-        vfPrintf(&sSerStream, "\n\r# SMBus write led1 off: %d", data[0]);
-      } break;
+              vfPrintf(&sSerStream, "now sleeping" LB);
+              SERIAL_vFlush(sSerStream.u8Device);  // flushing
 
-      case 'u': {
-        uint8 data[] = {
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
+              if (i16Char == 's') {
+                vAHI_UartDisable(sSerStream.u8Device);
+              }
 
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
+              // set UART Rx port as interrupt source
+              vAHI_DioSetDirection(u32DioPortWakeUp, 0);  // set as input
 
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-        };
-        bSMBusWrite(slaveAddr, 0x06, sizeof(data) / sizeof(data[0]), data);
-        vfPrintf(&sSerStream, "\n\r# SMBus write led1 off: %d", data[0]);
-      } break;
+              (void)u32AHI_DioInterruptStatus();        // clear interrupt
+         register
+              vAHI_DioWakeEnable(u32DioPortWakeUp, 0);  // also use as DIO WAKE
+         SOURCE
+              // vAHI_DioWakeEdge(0, PORT_INPUT_MASK); //
+              // 割り込みエッジ（立下りに設定）
+              vAHI_DioWakeEdge(u32DioPortWakeUp,
+                               0);  // 割り込みエッジ（立上がりに設定）
+              // vAHI_DioWakeEnable(0, PORT_INPUT_MASK); // DISABLE DIO WAKE
+         SOURCE
 
-      case 'v': {
-        uint8 data[] = {
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
+              // wake up using wakeup timer as well.
+              // ToCoNet_vSleep(E_AHI_WAKE_TIMER_0, 0, FALSE, TRUE); // RAM OFF
+              // SLEEP USING WK0
+              ToCoNet_vSleep(E_AHI_WAKE_TIMER_0, 0, FALSE,
+                             FALSE);  // RAM ON SLEEP USING WK0
+            } break;
 
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
+            case 'p': {                // RF power
+              static uint8 u8pow = 3;  // (MIN)0..3(MAX)
 
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
+              u8pow = (u8pow + 1) % 4;
+              vfPrintf(&sSerStream, "set power to %d.", u8pow);
 
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-        };
-        bSMBusWrite(slaveAddr, 0x06, sizeof(data) / sizeof(data[0]), data);
-        vfPrintf(&sSerStream, "\n\r# SMBus write led1 off: %d", data[0]);
-      } break;
+              sToCoNet_AppContext.u8TxPower = u8pow;
+              ToCoNet_vRfConfig();
+            } break;
 
-      case 'w': {
-        uint8 data[] = {
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
+            case 't': {  // send packet
+              // transmit Ack back
+              tsTxDataApp tsTx;
+              memset(&tsTx, 0, sizeof(tsTxDataApp));
 
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
+              sAppData.u32Seq++;
 
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
+              tsTx.u32SrcAddr = ToCoNet_u32GetSerial();
+              tsTx.u32DstAddr = 0xFFFF;  // broadcast
 
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x10, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-        };
-        bSMBusWrite(slaveAddr, 0x06, sizeof(data) / sizeof(data[0]), data);
-        vfPrintf(&sSerStream, "\n\r# SMBus write led1 off: %d", data[0]);
-      } break;
+              tsTx.bAckReq = FALSE;
+              tsTx.u8Retry = 2 | 0x80;  // retry 2 times
+              tsTx.u8CbId = sAppData.u32Seq & 0xFF;
+              tsTx.u8Seq = sAppData.u32Seq & 0xFF;
+              tsTx.u8Cmd = TOCONET_PACKET_CMD_APP_DATA;
 
-      case 'x': {
-        uint8 data[] = {
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x06, 0x59, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
+              // create message by SPRINTF
+              SPRINTF_vRewind();
+              vfPrintf(SPRINTF_Stream, "PING: %08X", ToCoNet_u32GetSerial());
+              memcpy(tsTx.auData, SPRINTF_pu8GetBuff(), SPRINTF_u16Length());
+              tsTx.u8Len = SPRINTF_u16Length();
 
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x06, 0x59, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
+              // send
+              ToCoNet_bMacTxReq(&tsTx);
 
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x06, 0x59, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
+              // LED control
+              sAppData.u32LedCt = u32TickCount_ms;
 
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x06, 0x59, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-        };
-        bSMBusWrite(slaveAddr, 0x06, sizeof(data) / sizeof(data[0]), data);
-        vfPrintf(&sSerStream, "\n\r# SMBus write led1 off: %d", data[0]);
-      } break;
-
-      case 'y': {
-        uint8 data[] = {
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x10, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x10, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x10, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-
-          0x00, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-          0x10, 0x00, 0x00, 0x00,
-          0x00, 0x00, 0x00, 0x00,
-        };
-        bSMBusWrite(slaveAddr, 0x06, sizeof(data) / sizeof(data[0]), data);
-        vfPrintf(&sSerStream, "\n\r# SMBus write led1 off: %d", data[0]);
-      } break;
-
-      case '>':
-      case '.': {  // channel up
-        sAppData.u8channel++;
-        if (sAppData.u8channel > 26) sAppData.u8channel = 11;
-        sToCoNet_AppContext.u8Channel = sAppData.u8channel;
-        ToCoNet_vRfConfig();
-        vfPrintf(&sSerStream, "set channel to %d.", sAppData.u8channel);
-      } break;
-
-      case '<':
-      case ',': {  // channel down
-        sAppData.u8channel--;
-        if (sAppData.u8channel < 11) sAppData.u8channel = 26;
-        sToCoNet_AppContext.u8Channel = sAppData.u8channel;
-        ToCoNet_vRfConfig();
-        vfPrintf(&sSerStream, "set channel to %d.", sAppData.u8channel);
-      } break;
-
-      case 'd':
-      case 'D': {
-        static uint8 u8DgbLvl;
-
-        u8DgbLvl++;
-        if (u8DgbLvl > 5) u8DgbLvl = 0;
-        ToCoNet_vDebugLevel(u8DgbLvl);
-
-        vfPrintf(&sSerStream, "set NwkCode debug level to %d.", u8DgbLvl);
-      } break;
-
-      case 's':
-      case 'S': {  // sleep test
-        // print message.
-        sAppData.u8SleepCt++;
-
-        // stop interrupt source, if interrupt source is still running.
-
-        vfPrintf(&sSerStream, "now sleeping" LB);
-        SERIAL_vFlush(sSerStream.u8Device);  // flushing
-
-        if (i16Char == 's') {
-          vAHI_UartDisable(sSerStream.u8Device);
-        }
-
-        // set UART Rx port as interrupt source
-        vAHI_DioSetDirection(u32DioPortWakeUp, 0);  // set as input
-
-        (void)u32AHI_DioInterruptStatus();        // clear interrupt register
-        vAHI_DioWakeEnable(u32DioPortWakeUp, 0);  // also use as DIO WAKE SOURCE
-        // vAHI_DioWakeEdge(0, PORT_INPUT_MASK); //
-        // 割り込みエッジ（立下りに設定）
-        vAHI_DioWakeEdge(u32DioPortWakeUp,
-                         0);  // 割り込みエッジ（立上がりに設定）
-        // vAHI_DioWakeEnable(0, PORT_INPUT_MASK); // DISABLE DIO WAKE SOURCE
-
-        // wake up using wakeup timer as well.
-        // ToCoNet_vSleep(E_AHI_WAKE_TIMER_0, 0, FALSE, TRUE); // RAM OFF
-        // SLEEP USING WK0
-        ToCoNet_vSleep(E_AHI_WAKE_TIMER_0, 0, FALSE,
-                       FALSE);  // RAM ON SLEEP USING WK0
-      } break;
-
-      case 'p': {                // RF power
-        static uint8 u8pow = 3;  // (MIN)0..3(MAX)
-
-        u8pow = (u8pow + 1) % 4;
-        vfPrintf(&sSerStream, "set power to %d.", u8pow);
-
-        sToCoNet_AppContext.u8TxPower = u8pow;
-        ToCoNet_vRfConfig();
-      } break;
-
-      case 't': {  // send packet
-        // transmit Ack back
-        tsTxDataApp tsTx;
-        memset(&tsTx, 0, sizeof(tsTxDataApp));
-
-        sAppData.u32Seq++;
-
-        tsTx.u32SrcAddr = ToCoNet_u32GetSerial();
-        tsTx.u32DstAddr = 0xFFFF;  // broadcast
-
-        tsTx.bAckReq = FALSE;
-        tsTx.u8Retry = 2 | 0x80;  // retry 2 times
-        tsTx.u8CbId = sAppData.u32Seq & 0xFF;
-        tsTx.u8Seq = sAppData.u32Seq & 0xFF;
-        tsTx.u8Cmd = TOCONET_PACKET_CMD_APP_DATA;
-
-        // create message by SPRINTF
-        SPRINTF_vRewind();
-        vfPrintf(SPRINTF_Stream, "PING: %08X", ToCoNet_u32GetSerial());
-        memcpy(tsTx.auData, SPRINTF_pu8GetBuff(), SPRINTF_u16Length());
-        tsTx.u8Len = SPRINTF_u16Length();
-
-        // send
-        ToCoNet_bMacTxReq(&tsTx);
-
-        // LED control
-        sAppData.u32LedCt = u32TickCount_ms;
-
-        // output to UART
-        vfPrintf(&sSerStream, LB "Fire PING Broadcast Message.");
-      } break;
+              // output to UART
+              vfPrintf(&sSerStream, LB "Fire PING Broadcast Message.");
+            } break;
+            */
 
       default:
         break;
@@ -917,7 +953,6 @@ static void vHandleSerialInput(void) {
 
     vfPrintf(&sSerStream, LB);
     SERIAL_vFlush(sSerStream.u8Device);
-    */
   }
 }
 

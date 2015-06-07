@@ -8,32 +8,49 @@
 
 #include <inttypes.h>
 #include <string.h>
-#include "result/result.h"
-#include "result/result_const.h"
+//#include "result/result.h"
+//#include "result/result_const.h"
 
 /**
  * データパース
  */
 
-static const uint8_t START_BYTE1 = 0x5A;
-static const uint8_t START_BYTE2 = 0xA5;
-static const uint8_t START_BYTE_LENGTH = 2;
+const uint8 START_BYTE1 = 0x5A;
+const uint8 START_BYTE2 = 0xA5;
+const uint8 START_BYTE_LENGTH = 2;
 
-static const uint8_t COMMAND_BYTE_LENGTH = 1;
-static const uint8_t CHECKSUM_BYTE_LENGTH = 1;
+const uint8 COMMAND_BYTE_LENGTH = 1;
+const uint8 CHECKSUM_BYTE_LENGTH = 1;
 
-static const uint16_t RECEIVE_DATA_BUFFER_LENGTH = 512;
-uint8_t receiveData[RECEIVE_DATA_BUFFER_LENGTH];
-uint16_t receiveDataLength;
-bool isStart;
+const uint16 RECEIVE_DATA_BUFFER_LENGTH = 512;
+//uint8 receiveData[512];
+//uint16 receiveDataLength;
+//bool_t isStart;
 
+
+typedef struct {
+  uint8 resultCode;
+  uint8 receiveData[512];
+  uint16_t receiveDataLength;
+  bool_t isStart;
+
+  uint16_t dataOffset;
+  uint16_t dataLength;
+} Result;
 
 /**
  *
  */
-void lpr9201_parser_init() {
-  this->receiveDataLength = 0;
-  this->isStart = false;
+void lpr9201_parser_init(Result *result) {
+  result->receiveDataLength = 0;
+  result->isStart = FALSE;
+}
+
+/**
+ * データ長バイトサイズ一覧
+ */
+static uint8 getDataLengthByteSize(uint8 command) {
+  return command == 0x83 ? 2 : 1;
 }
 
 /**
@@ -43,75 +60,77 @@ void lpr9201_parser_init() {
  * @param result
  * @return パースできたか
  */
-bool_t lpr9201_parser_parse(uint8 data, result::Result* result) {
-  bool_t isParsed = false;
+bool_t lpr9201_parser_parse(uint8 data, Result *result) {
+  bool_t isParsed = FALSE;
 
   // header check
-  if (this->receiveData[0] == START_BYTE1 && data == START_BYTE2 &&
-      !this->isStart) {
-    this->receiveDataLength = 1;
-    this->isStart = true;
+  if (result->receiveData[0] == START_BYTE1 && data == START_BYTE2 &&
+      !result->isStart) {
+    result->receiveDataLength = 1;
+    result->isStart = TRUE;
   }
 
-  this->receiveData[this->receiveDataLength] = data;
+  result->receiveData[result->receiveDataLength] = data;
 
-  if (this->isStart) {
-    this->receiveDataLength++;
+  if (result->isStart) {
+    result->receiveDataLength++;
 
-    if (receiveDataLength > RECEIVE_DATA_BUFFER_LENGTH) {
-      this->receiveDataLength = 0;
-      this->isStart = false;
+    if (result->receiveDataLength > RECEIVE_DATA_BUFFER_LENGTH) {
+      result->receiveDataLength = 0;
+      result->isStart = FALSE;
     }
 
-    if (this->receiveDataLength > START_BYTE_LENGTH) {
-      uint8_t command = this->receiveData[2];
+    if (result->receiveDataLength > START_BYTE_LENGTH) {
+      uint8 command = result->receiveData[2];
 
-      if (result::ResultConst::getDataLengthByteSize(command) > 0) {
-        uint8_t dataLengthByteSize =
-            result::ResultConst::getDataLengthByteSize(command);
+      if (getDataLengthByteSize(command) > 0) {
+        uint8 dataLengthByteSize = getDataLengthByteSize(command);
 
-        if (this->receiveDataLength >
-            (uint16_t)(START_BYTE_LENGTH + dataLengthByteSize)) {
-          uint16_t dataLength = 0;
+        if (result->receiveDataLength >
+            (uint16)(START_BYTE_LENGTH + dataLengthByteSize)) {
+          uint16 dataLength = 0;
           for (int i = 0; i < dataLengthByteSize; i++) {
-            uint8_t byteData =
-                this->receiveData[START_BYTE_LENGTH + COMMAND_BYTE_LENGTH + i];
-            uint8_t shiftCount = 8 * (dataLengthByteSize - i - 1);
+            uint8 byteData =
+                result->receiveData[START_BYTE_LENGTH + COMMAND_BYTE_LENGTH + i];
+            uint8 shiftCount = 8 * (dataLengthByteSize - i - 1);
             dataLength |= byteData << shiftCount;
           }
 
-          if (this->receiveDataLength >=
+          if (result->receiveDataLength >=
               START_BYTE_LENGTH + COMMAND_BYTE_LENGTH + dataLengthByteSize +
                   dataLength + CHECKSUM_BYTE_LENGTH) {
             // calculate checksum
-            uint8_t checksum = 0;
-            for (uint16_t i = 0; i < this->receiveDataLength - 1;
+            uint8 checksum = 0;
+            for (uint16 i = 0; i < result->receiveDataLength - 1;
                  i++) {  // checksumは除く
-              checksum ^= this->receiveData[i];
+              checksum ^= result->receiveData[i];
             }
 
             // check checksum
-            if (checksum == this->receiveData[this->receiveDataLength - 1]) {
-              uint8_t startIndex =
+            if (checksum == result->receiveData[result->receiveDataLength - 1]) {
+              uint8 startIndex =
                   START_BYTE_LENGTH + COMMAND_BYTE_LENGTH + dataLengthByteSize;
 
               result->resultCode = command;
+              /*
               result->datas = (uint8_t*)memmove(
-                  this->receiveData, &this->receiveData[startIndex],
-                  this->receiveDataLength - startIndex - CHECKSUM_BYTE_LENGTH);
+                  result->receiveData, &result->receiveData[startIndex],
+                  result->receiveDataLength - startIndex - CHECKSUM_BYTE_LENGTH);
+              */
+              result->dataOffset = startIndex;
               result->dataLength =
-                  this->receiveDataLength - startIndex - CHECKSUM_BYTE_LENGTH;
+                  result->receiveDataLength - startIndex - CHECKSUM_BYTE_LENGTH;
 
-              isParsed = true;
+              isParsed = TRUE;
             }
 
-            this->receiveDataLength = 0;
-            this->isStart = false;
+            result->receiveDataLength = 0;
+            result->isStart = FALSE;
           }
         }
       } else {
-        this->receiveDataLength = 0;
-        this->isStart = false;
+        result->receiveDataLength = 0;
+        result->isStart = FALSE;
       }
     }
   }
