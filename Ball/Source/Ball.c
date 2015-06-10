@@ -447,16 +447,20 @@ uint8 color[] = {
 
 void colorApply2(uint8 index, uint8 *datas, uint8 offset) {
   uint16 d2 = datas[offset + 2] * 4096 / 256;
-  color[2 + 4 * 0] = d2 >> 8;
-  color[3 + 4 * 0] = d2 >> 0;
+  color[2 + 4 * 0] = d2 >> 0;
+  color[3 + 4 * 0] = d2 >> 8;
 
   uint16 d0 = datas[offset + 0] * 4096 / 256;
-  color[2 + 4 * 1] = d0 >> 8;
-  color[3 + 4 * 1] = d0 >> 0;
+  color[2 + 4 * 1] = d0 >> 0;
+  color[3 + 4 * 1] = d0 >> 8;
 
   uint16 d1 = datas[offset + 1] * 4096 / 256;
-  color[2 + 4 * 2] = d1 >> 8;
-  color[3 + 4 * 2] = d1 >> 0;
+  color[2 + 4 * 2] = d1 >> 0;
+  color[3 + 4 * 2] = d1 >> 8;
+
+  vfPrintf(&sSerStream, "\n\r# SMBus write led1 on color[2 + 4 * 0]: %d", color[2 + 4 * 0]);
+  vfPrintf(&sSerStream, "\n\r# SMBus write led1 on color[3 + 4 * 0]: %d", color[3 + 4 * 0]);
+  SERIAL_vFlush(sSerStream.u8Device);
 
   //color[2 + 4 * 3] = 0x00;
   //color[3 + 4 * 3] = 0x00;
@@ -464,16 +468,16 @@ void colorApply2(uint8 index, uint8 *datas, uint8 offset) {
   /////
 
   uint16 d5 = datas[offset + 5] * 4096 / 256;
-  color[2 + 4 * 4] = d5 >> 8;
-  color[3 + 4 * 4] = d5 >> 0;
+  color[2 + 4 * 4] = d5 >> 0;
+  color[3 + 4 * 4] = d5 >> 8;
 
   uint16 d3 = datas[offset + 3] * 4096 / 256;
-  color[2 + 4 * 5] = d3 >> 8;
-  color[3 + 4 * 5] = d3 >> 0;
+  color[2 + 4 * 5] = d3 >> 0;
+  color[3 + 4 * 5] = d3 >> 8;
 
   uint16 d4 = datas[offset + 4] * 4096 / 256;
-  color[2 + 4 * 6] = d4 >> 8;
-  color[3 + 4 * 6] = d4 >> 0;
+  color[2 + 4 * 6] = d4 >> 0;
+  color[3 + 4 * 6] = d4 >> 8;
 
   //color[2 + 4 * 7] = 0x00;
   //color[3 + 4 * 7] = 0x00;
@@ -481,16 +485,16 @@ void colorApply2(uint8 index, uint8 *datas, uint8 offset) {
   /////
 
   uint16 d8 = datas[offset + 8] * 4096 / 256;
-  color[2 + 4 * 8] = d8 >> 8;
-  color[3 + 4 * 8] = d8 >> 0;
+  color[2 + 4 * 8] = d8 >> 0;
+  color[3 + 4 * 8] = d8 >> 8;
 
   uint16 d6 = datas[offset + 6] * 4096 / 256;
-  color[2 + 4 * 9] = d6 >> 8;
-  color[3 + 4 * 9] = d6 >> 0;
+  color[2 + 4 * 9] = d6 >> 0;
+  color[3 + 4 * 9] = d6 >> 8;
 
   uint16 d7 = datas[offset + 7] * 4096 / 256;
-  color[2 + 4 * 10] = d7 >> 8;
-  color[3 + 4 * 10] = d7 >> 0;
+  color[2 + 4 * 10] = d7 >> 0;
+  color[3 + 4 * 10] = d7 >> 8;
 
   //color[2 + 4 * 11] = 0x00;
   //color[3 + 4 * 11] = 0x00;
@@ -498,16 +502,16 @@ void colorApply2(uint8 index, uint8 *datas, uint8 offset) {
   /////
 
   uint16 d11 = datas[offset + 11] * 4096 / 256;
-  color[2 + 4 * 12] = d11 >> 8;
-  color[3 + 4 * 12] = d11 >> 0;
+  color[2 + 4 * 12] = d11 >> 0;
+  color[3 + 4 * 12] = d11 >> 8;
 
   uint16 d9 = datas[offset + 9] * 4096 / 256;
-  color[2 + 4 * 13] = d9 >> 8;
-  color[3 + 4 * 13] = d9 >> 0;
+  color[2 + 4 * 13] = d9 >> 0;
+  color[3 + 4 * 13] = d9 >> 8;
 
   uint16 d10 = datas[offset + 10] * 4096 / 256;
-  color[2 + 4 * 14] = d10 >> 8;
-  color[3 + 4 * 14] = d10 >> 0;
+  color[2 + 4 * 14] = d10 >> 0;
+  color[3 + 4 * 14] = d10 >> 8;
 
   //color[2 + 4 * 15] = 0x00;
   //color[2 + 4 * 15] = 0x00;
@@ -515,6 +519,7 @@ void colorApply2(uint8 index, uint8 *datas, uint8 offset) {
 
   bSMBusWrite(slaveAddrs[index], 0x06, sizeof(color) / sizeof(color[0]), color);
   vfPrintf(&sSerStream, "\n\r# SMBus write led1 on: %d", color[0]);
+  SERIAL_vFlush(sSerStream.u8Device);
 }
 
 void colorApply(uint8 index, uint8 red, uint8 green, uint8 blue) {
@@ -541,8 +546,6 @@ void colorApply(uint8 index, uint8 red, uint8 green, uint8 blue) {
   bSMBusWrite(slaveAddrs[slaveAddrIndex], 0x06 + (index % 4) * 4, sizeof(data) / sizeof(data[0]), data);
   vfPrintf(&sSerStream, "\n\r# SMBus write chip:0x%02X led:%d", slaveAddrs[slaveAddrIndex], index);
   SERIAL_vFlush(sSerStream.u8Device);
-
-  vWait(10000);
 }
 
 void lpr9201Send(uint8 *data, int length) {
@@ -785,22 +788,22 @@ static void vHandleSerialInput(void) {
 
       case 'l': {
         uint8 data[] = {
-            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x10, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
 
-            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x10, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
 
-            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x10, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
 
-            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x10, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
@@ -812,22 +815,22 @@ static void vHandleSerialInput(void) {
       case 'm': {
         uint8 data[] = {
             0x00, 0x00, 0x00, 0x00, //
-            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x10, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
 
             0x00, 0x00, 0x00, 0x00, //
-            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x10, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
 
             0x00, 0x00, 0x00, 0x00, //
-            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x10, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
 
             0x00, 0x00, 0x00, 0x00, //
-            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x10, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
         };
@@ -839,22 +842,22 @@ static void vHandleSerialInput(void) {
         uint8 data[] = {
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
-            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x10, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
 
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
-            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x10, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
 
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
-            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x10, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
 
             0x00, 0x00, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
-            0x00, 0x00, 0xFF, 0x00, //
+            0x00, 0x10, 0x00, 0x00, //
             0x00, 0x00, 0x00, 0x00, //
 
         };
