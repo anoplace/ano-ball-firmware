@@ -23,10 +23,9 @@ const uint8 COMMAND_BYTE_LENGTH = 1;
 const uint8 CHECKSUM_BYTE_LENGTH = 1;
 
 const uint16 RECEIVE_DATA_BUFFER_LENGTH = 512;
-//uint8 receiveData[512];
-//uint16 receiveDataLength;
-//bool_t isStart;
-
+// uint8 receiveData[512];
+// uint16 receiveDataLength;
+// bool_t isStart;
 
 typedef struct {
   uint8 resultCode;
@@ -91,7 +90,8 @@ bool_t lpr9201_parser_parse(uint8 data, Result *result) {
           uint16 dataLength = 0;
           for (int i = 0; i < dataLengthByteSize; i++) {
             uint8 byteData =
-                result->receiveData[START_BYTE_LENGTH + COMMAND_BYTE_LENGTH + i];
+                result
+                    ->receiveData[START_BYTE_LENGTH + COMMAND_BYTE_LENGTH + i];
             uint8 shiftCount = 8 * (dataLengthByteSize - i - 1);
             dataLength |= byteData << shiftCount;
           }
@@ -107,7 +107,8 @@ bool_t lpr9201_parser_parse(uint8 data, Result *result) {
             }
 
             // check checksum
-            if (checksum == result->receiveData[result->receiveDataLength - 1]) {
+            if (checksum ==
+                result->receiveData[result->receiveDataLength - 1]) {
               uint8 startIndex =
                   START_BYTE_LENGTH + COMMAND_BYTE_LENGTH + dataLengthByteSize;
 
@@ -115,7 +116,8 @@ bool_t lpr9201_parser_parse(uint8 data, Result *result) {
               /*
               result->datas = (uint8_t*)memmove(
                   result->receiveData, &result->receiveData[startIndex],
-                  result->receiveDataLength - startIndex - CHECKSUM_BYTE_LENGTH);
+                  result->receiveDataLength - startIndex -
+              CHECKSUM_BYTE_LENGTH);
               */
               result->dataOffset = startIndex;
               result->dataLength =

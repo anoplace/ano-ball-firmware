@@ -30,7 +30,7 @@
 #include "app_event.h"
 
 #include "SMBus.h"
-#include "lpr9201.h"
+#include "LPR9201.h"
 #include "PCA9685.h"
 
 typedef struct {
