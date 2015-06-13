@@ -47,6 +47,7 @@ include ../Version.mk
 APPSRC += $(TARGET_DIR).c
 APPSRC += SMBus.c
 APPSRC += PCA9685.c
+APPSRC += FullColorLed.c
 
 ### Target type
 # アプリケーション(.bin)をビルドするか、ライブラリ(.a)にするか指定します。
