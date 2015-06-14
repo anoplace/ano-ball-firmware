@@ -3,7 +3,8 @@
 
 #include "FullColorLed.h"
 
-PRIVATE bool_t validateIndexRange(tsFullColorLed *psFullColorLed, uint8 u8Index);
+PRIVATE bool_t
+validateIndexRange(tsFullColorLed *psFullColorLed, uint8 u8Index);
 
 /**
  *
@@ -27,8 +28,8 @@ PUBLIC void vFullColorLed_setLedRaw(tsFullColorLed *psFullColorLed,
   uint8 u8LedIndex = u8Index % PCA9685_LED_RGBW_NUMBER;
 
   if (validateIndexRange(psFullColorLed, u8Index)) {
-    vPCA9685_setRgbwLedRaw(&(psFullColorLed->sPCA9685s[u8DeviceIndex]), u8LedIndex,
-                           u16Red, u16Green, u16Blue, u16White);
+    vPCA9685_setRgbwLedRaw(&(psFullColorLed->sPCA9685s[u8DeviceIndex]),
+                           u8LedIndex, u16Red, u16Green, u16Blue, u16White);
   }
 }
 
