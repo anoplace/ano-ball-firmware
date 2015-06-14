@@ -76,9 +76,14 @@ tsPCA9685 sPCA9685s[] = {
     {0x7D},  //
 };
 
+uint8 u8LedMappingTable[] = {
+    8, 10, 11, 3, 2, 9, 5, 1, 7, 0, 4, 6,
+};
+
 tsFullColorLed sFullColorLed = {
-    sPCA9685s,                                //
-    sizeof(sPCA9685s) / sizeof(sPCA9685s[0])  //
+    sPCA9685s,                                 //
+    sizeof(sPCA9685s) / sizeof(sPCA9685s[0]),  //
+    u8LedMappingTable                          //
 };
 
 Result lpr9201Result;
@@ -424,11 +429,6 @@ void lpr9201Send(uint8 *data, int length) {
 // FIXME
 int number = 0;
 
-// LEDの変換テーブル
-uint8 arr[] = {
-    8, 10, 11, 3, 2, 9, 5, 1, 7, 0, 4, 6,
-};
-
 /**
  * HandleSerialInput
  */
@@ -461,7 +461,7 @@ static void vHandleSerialInput(void) {
         for (int i = 0; i < 12; i++) {
           uint8 offset = lpr9201Result.dataOffset + i * 3;
 
-          vFullColorLed_setLedRaw(&sFullColorLed, arr[i],           //
+          vFullColorLed_setLedRaw(&sFullColorLed, i,                //
                                   u8Data[offset + 0] * 4096 / 256,  //
                                   u8Data[offset + 1] * 4096 / 256,  //
                                   u8Data[offset + 2] * 4096 / 256,  //
@@ -545,7 +545,7 @@ static void vHandleSerialInput(void) {
       } break;
 
       case 'm': {
-        vFullColorLed_setLed(&sFullColorLed, arr[number], 0x0F0000);
+        vFullColorLed_setLed(&sFullColorLed, number, 0x0F0000);
 
         number = (number + 1) % 12;
       } break;
