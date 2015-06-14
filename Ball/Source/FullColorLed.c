@@ -24,6 +24,10 @@ PUBLIC void vFullColorLed_setLedRaw(tsFullColorLed *psFullColorLed,
                                     uint8 u8Index, uint16 u16Red,
                                     uint16 u16Green, uint16 u16Blue,
                                     uint16 u16White) {
+  u8Index = psFullColorLed->u8LedMappingTable == NULL
+                ? u8Index
+                : psFullColorLed->u8LedMappingTable[u8Index];
+
   uint8 u8DeviceIndex = u8Index / PCA9685_LED_RGBW_NUMBER;
   uint8 u8LedIndex = u8Index % PCA9685_LED_RGBW_NUMBER;
 
@@ -39,6 +43,10 @@ PUBLIC void vFullColorLed_setLedRaw(tsFullColorLed *psFullColorLed,
  */
 PUBLIC void vFullColorLed_setLed(tsFullColorLed *psFullColorLed, uint8 u8Index,
                                  uint32 u32Color) {
+  u8Index = psFullColorLed->u8LedMappingTable == NULL
+                ? u8Index
+                : psFullColorLed->u8LedMappingTable[u8Index];
+
   uint8 u8DeviceIndex = u8Index / PCA9685_LED_RGBW_NUMBER;
   uint8 u8LedIndex = u8Index % PCA9685_LED_RGBW_NUMBER;
 

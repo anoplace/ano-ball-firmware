@@ -8,8 +8,9 @@ extern "C" {
 #endif
 
 typedef struct {
-  tsPCA9685 *sPCA9685s;   //
-  uint8 u8PCA9685Length;  //
+  tsPCA9685 *sPCA9685s;     //
+  uint8 u8PCA9685Length;    //
+  uint8 *u8LedMappingTable  //
 } tsFullColorLed;
 
 PUBLIC void vFullColorLed_Init(tsFullColorLed *psFullColorLed);
