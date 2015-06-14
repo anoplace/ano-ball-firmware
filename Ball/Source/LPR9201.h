@@ -82,57 +82,50 @@ bool_t lpr9201_parser_parse(uint8 data, Result *result) {
     if (result->receiveDataLength > START_BYTE_LENGTH) {
       uint8 command = result->receiveData[2];
 
-      if (getDataLengthByteSize(command) > 0) {
-        uint8 dataLengthByteSize = getDataLengthByteSize(command);
+      uint8 dataLengthByteSize = getDataLengthByteSize(command);
 
-        if (result->receiveDataLength >
-            (uint16)(START_BYTE_LENGTH + dataLengthByteSize)) {
-          uint16 dataLength = 0;
-          for (int i = 0; i < dataLengthByteSize; i++) {
-            uint8 byteData =
-                result
-                    ->receiveData[START_BYTE_LENGTH + COMMAND_BYTE_LENGTH + i];
-            uint8 shiftCount = 8 * (dataLengthByteSize - i - 1);
-            dataLength |= byteData << shiftCount;
-          }
-
-          if (result->receiveDataLength >=
-              START_BYTE_LENGTH + COMMAND_BYTE_LENGTH + dataLengthByteSize +
-                  dataLength + CHECKSUM_BYTE_LENGTH) {
-            // calculate checksum
-            uint8 checksum = 0;
-            for (uint16 i = 0; i < result->receiveDataLength - 1;
-                 i++) {  // checksumは除く
-              checksum ^= result->receiveData[i];
-            }
-
-            // check checksum
-            if (checksum ==
-                result->receiveData[result->receiveDataLength - 1]) {
-              uint8 startIndex =
-                  START_BYTE_LENGTH + COMMAND_BYTE_LENGTH + dataLengthByteSize;
-
-              result->resultCode = command;
-              /*
-              result->datas = (uint8_t*)memmove(
-                  result->receiveData, &result->receiveData[startIndex],
-                  result->receiveDataLength - startIndex -
-              CHECKSUM_BYTE_LENGTH);
-              */
-              result->dataOffset = startIndex;
-              result->dataLength =
-                  result->receiveDataLength - startIndex - CHECKSUM_BYTE_LENGTH;
-
-              isParsed = TRUE;
-            }
-
-            result->receiveDataLength = 0;
-            result->isStart = FALSE;
-          }
+      if (result->receiveDataLength >
+          (uint16)(START_BYTE_LENGTH + dataLengthByteSize)) {
+        uint16 dataLength = 0;
+        for (int i = 0; i < dataLengthByteSize; i++) {
+          uint8 byteData =
+              result->receiveData[START_BYTE_LENGTH + COMMAND_BYTE_LENGTH + i];
+          uint8 shiftCount = 8 * (dataLengthByteSize - i - 1);
+          dataLength |= byteData << shiftCount;
         }
-      } else {
-        result->receiveDataLength = 0;
-        result->isStart = FALSE;
+
+        if (result->receiveDataLength >=
+            START_BYTE_LENGTH + COMMAND_BYTE_LENGTH + dataLengthByteSize +
+                dataLength + CHECKSUM_BYTE_LENGTH) {
+          // calculate checksum
+          uint8 checksum = 0;
+          for (uint16 i = 0; i < result->receiveDataLength - 1;
+               i++) {  // checksumは除く
+            checksum ^= result->receiveData[i];
+          }
+
+          // check checksum
+          if (checksum == result->receiveData[result->receiveDataLength - 1]) {
+            uint8 startIndex =
+                START_BYTE_LENGTH + COMMAND_BYTE_LENGTH + dataLengthByteSize;
+
+            result->resultCode = command;
+            /*
+            result->datas = (uint8_t*)memmove(
+                result->receiveData, &result->receiveData[startIndex],
+                result->receiveDataLength - startIndex -
+            CHECKSUM_BYTE_LENGTH);
+            */
+            result->dataOffset = startIndex;
+            result->dataLength =
+                result->receiveDataLength - startIndex - CHECKSUM_BYTE_LENGTH;
+
+            isParsed = TRUE;
+          }
+
+          result->receiveDataLength = 0;
+          result->isStart = FALSE;
+        }
       }
     }
   }
