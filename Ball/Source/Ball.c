@@ -32,6 +32,7 @@
 #include "SMBus.h"
 #include "LPR9201.h"
 #include "PCA9685.h"
+#include "FullColorLed.h"
 
 typedef struct {
   // MAC
@@ -75,8 +76,11 @@ tsPCA9685 sPCA9685s[] = {
     {0x7D},  //
 };
 
-uint8 slaveAddrs[] = {0x7F, 0x7E, 0x7D};
-uint8 slaveAddr = 0x7F;
+tsFullColorLed sFullColorLed = {
+    sPCA9685s,                                //
+    sizeof(sPCA9685s) / sizeof(sPCA9685s[0])  //
+};
+
 Result lpr9201Result;
 
 uint8 gradation = 0;
@@ -197,13 +201,11 @@ void cbToCoNet_vRxEvent(tsRxDataApp *pRx) {
   static uint16 u16seqPrev = 0xFFFF;
 
   // print coming payload
-  vfPrintf(
-      &sSerStream, LB "[PKT Ad:%04x,Ln:%03d,Seq:%03d,Lq:%03d,Tms:%05d \"",
-      pRx->u32SrcAddr,
-      pRx->u8Len +
-          4,  // actual payload byte: the network layer uses additional 4 bytes.
-      pRx->u8Seq,
-      pRx->u8Lqi, pRx->u32Tick & 0xFFFF);
+  vfPrintf(&sSerStream, LB "[PKT Ad:%04x,Ln:%03d,Seq:%03d,Lq:%03d,Tms:%05d \"",
+           pRx->u32SrcAddr,
+           pRx->u8Len + 4,  // actual payload byte: the network layer uses
+                            // additional 4 bytes.
+           pRx->u8Seq, pRx->u8Lqi, pRx->u32Tick & 0xFFFF);
   for (i = 0; i < pRx->u8Len; i++) {
     if (i < 32) {
       sSerStream.bPutChar(sSerStream.u8Device,
@@ -262,6 +264,8 @@ void cbToCoNet_vRxEvent(tsRxDataApp *pRx) {
  */
 void cbToCoNet_vTxEvent(uint8 u8CbId, uint8 bStatus) { return; }
 
+int num = 0;
+
 /**
  * HwEvent
  * Process any hardware events.
@@ -274,16 +278,9 @@ void cbToCoNet_vHwEvent(uint32 u32DeviceId, uint32 u32ItemBitmap) {
       // LED blink
       // vPortSet_TrueAsLo(PORT_KIT_LED2, u32TickCount_ms & 0x400);
 
-      if (u32TickCount_ms & 0x04) {
+      if (u32TickCount_ms & 0x200) {
         if (gradation != 0 && gradation != 255) {
           gradation++;
-          uint16 data[12] = {};
-
-          for (int i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
-            data[i] = gradation;
-          }
-
-          colorApply2(0, data, 0);
         }
       } else {
       }
@@ -348,10 +345,8 @@ static void vInitHardware(int f_warm_start) {
   // I2Cを初期化
   vSMBusInit();
 
-  // PCA9685を初期化
-  for (int i = 0; i < sizeof(sPCA9685s) / sizeof(sPCA9685s[0]); i++) {
-    vPCA9685_Init(&sPCA9685s[i]);
-  }
+  // FullColorLedを初期化
+  vFullColorLed_Init(&sFullColorLed);
 
   vWait(1000 * 10000);
 
@@ -418,143 +413,6 @@ void vSerialInit2(uint32 u32Baud, tsUartOpt *pUartOpt) {
   sSerStream2.u8Device = E_AHI_UART_1;
 }
 
-uint8 color[] = {
-    0x00, 0x00, 0x00, 0x00,  //
-    0x00, 0x00, 0x00, 0x00,  //
-    0x00, 0x00, 0x00, 0x00,  //
-    0x00, 0x00, 0x00, 0x00,  //
-
-    0x00, 0x00, 0x00, 0x00,  //
-    0x00, 0x00, 0x00, 0x00,  //
-    0x00, 0x00, 0x00, 0x00,  //
-    0x00, 0x00, 0x00, 0x00,  //
-
-    0x00, 0x00, 0x00, 0x00,  //
-    0x00, 0x00, 0x00, 0x00,  //
-    0x00, 0x00, 0x00, 0x00,  //
-    0x00, 0x00, 0x00, 0x00,  //
-
-    0x00, 0x00, 0x00, 0x00,  //
-    0x00, 0x00, 0x00, 0x00,  //
-    0x00, 0x00, 0x00, 0x00,  //
-    0x00, 0x00, 0x00, 0x00,  //
-};
-
-void colorApply2(uint8 index, uint8 *datas, uint8 offset) {
-  // blue0
-  uint16 d2 = datas[offset + 2] * 4096 / 256;
-  color[2 + 4 * 0] = d2 >> 0;
-  color[3 + 4 * 0] = d2 >> 8;
-
-  // red0
-  uint16 d0 = datas[offset + 0] * 4096 / 256;
-  color[2 + 4 * 1] = d0 >> 0;
-  color[3 + 4 * 1] = d0 >> 8;
-
-  // green0
-  uint16 d1 = datas[offset + 1] * 4096 / 256;
-  color[2 + 4 * 2] = d1 >> 0;
-  color[3 + 4 * 2] = d1 >> 8;
-
-  // white0
-  // color[2 + 4 * 3] = 0x00;
-  // color[3 + 4 * 3] = 0x00;
-
-  /////
-
-  // blue1
-  uint16 d5 = datas[offset + 5] * 4096 / 256;
-  color[2 + 4 * 4] = d5 >> 0;
-  color[3 + 4 * 4] = d5 >> 8;
-
-  // red1
-  uint16 d3 = datas[offset + 3] * 4096 / 256;
-  color[2 + 4 * 5] = d3 >> 0;
-  color[3 + 4 * 5] = d3 >> 8;
-
-  // green1
-  uint16 d4 = datas[offset + 4] * 4096 / 256;
-  color[2 + 4 * 6] = d4 >> 0;
-  color[3 + 4 * 6] = d4 >> 8;
-
-  // white1
-  // color[2 + 4 * 7] = 0x00;
-  // color[3 + 4 * 7] = 0x00;
-
-  /////
-
-  // blue2
-  uint16 d8 = datas[offset + 8] * 4096 / 256;
-  color[2 + 4 * 8] = d8 >> 0;
-  color[3 + 4 * 8] = d8 >> 8;
-
-  // red2
-  uint16 d6 = datas[offset + 6] * 4096 / 256;
-  color[2 + 4 * 9] = d6 >> 0;
-  color[3 + 4 * 9] = d6 >> 8;
-
-  // green2
-  uint16 d7 = datas[offset + 7] * 4096 / 256;
-  color[2 + 4 * 10] = d7 >> 0;
-  color[3 + 4 * 10] = d7 >> 8;
-
-  // white2
-  // color[2 + 4 * 11] = 0x00;
-  // color[3 + 4 * 11] = 0x00;
-
-  /////
-
-  // blue3
-  uint16 d11 = datas[offset + 11] * 4096 / 256;
-  color[2 + 4 * 12] = d11 >> 0;
-  color[3 + 4 * 12] = d11 >> 8;
-
-  // red3
-  uint16 d9 = datas[offset + 9] * 4096 / 256;
-  color[2 + 4 * 13] = d9 >> 0;
-  color[3 + 4 * 13] = d9 >> 8;
-
-  // green3
-  uint16 d10 = datas[offset + 10] * 4096 / 256;
-  color[2 + 4 * 14] = d10 >> 0;
-  color[3 + 4 * 14] = d10 >> 8;
-
-  // white3
-  // color[2 + 4 * 15] = 0x00;
-  // color[2 + 4 * 15] = 0x00;
-
-  bSMBusWrite(slaveAddrs[index], 0x06, sizeof(color) / sizeof(color[0]), color);
-  vfPrintf(&sSerStream, "\n\r# SMBus write led1 on: %d", color[0]);
-  SERIAL_vFlush(sSerStream.u8Device);
-}
-
-void colorApply(uint8 index, uint8 red, uint8 green, uint8 blue) {
-  uint8 data[] = {
-      0x00, 0x00, blue,  0x00,  //
-      0x00, 0x00, red,   0x00,  //
-      0x00, 0x00, green, 0x00,  //
-      0x00, 0x00, 0x00,  0x00,  //
-  };
-
-  uint8 slaveAddrIndex = 0;
-
-  if (0 <= index && index <= 3) {
-    slaveAddrIndex = 0;
-
-  } else if (4 <= index && index <= 7) {
-    slaveAddrIndex = 1;
-
-  } else if (8 <= index && index <= 11) {
-    slaveAddrIndex = 2;
-  }
-
-  bSMBusWrite(slaveAddrs[slaveAddrIndex], 0x06 + (index % 4) * 4,
-              sizeof(data) / sizeof(data[0]), data);
-  vfPrintf(&sSerStream, "\n\r# SMBus write chip:0x%02X led:%d",
-           slaveAddrs[slaveAddrIndex], index);
-  SERIAL_vFlush(sSerStream.u8Device);
-}
-
 void lpr9201Send(uint8 *data, int length) {
   for (int i = 0; i < length; i++) {
     vPutChar(&sSerStream2, data[i]);
@@ -564,7 +422,12 @@ void lpr9201Send(uint8 *data, int length) {
 }
 
 // FIXME
-float num = 0;
+int number = 0;
+
+// LEDの変換テーブル
+uint8 arr[] = {
+    8, 10, 11, 3, 2, 9, 5, 1, 7, 0, 4, 6,
+};
 
 /**
  * HandleSerialInput
@@ -593,10 +456,16 @@ static void vHandleSerialInput(void) {
       SERIAL_vFlush(sSerStream.u8Device);
 
       if (lpr9201Result.dataLength >= 36) {  // FIXME
+        uint8 *u8Data = lpr9201Result.receiveData;
 
-        for (int i = 0; i < sizeof(slaveAddrs) / sizeof(slaveAddrs[0]); i++) {
-          colorApply2(i, lpr9201Result.receiveData,
-                      lpr9201Result.dataOffset + 12 * i);
+        for (int i = 0; i < 12; i++) {
+          uint8 offset = lpr9201Result.dataOffset + i * 3;
+
+          vFullColorLed_setLedRaw(&sFullColorLed, arr[i],           //
+                                  u8Data[offset + 0] * 4096 / 256,  //
+                                  u8Data[offset + 1] * 4096 / 256,  //
+                                  u8Data[offset + 2] * 4096 / 256,  //
+                                  0x0000);
         }
       }
     }
@@ -612,6 +481,7 @@ static void vHandleSerialInput(void) {
     SERIAL_vFlush(sSerStream.u8Device);
 
     switch (i16Char) {
+      /*
       case 'a': {
         uint8 data[] = {0x5A, 0xA5, 0x00, 0x00, 0xFF};
         lpr9201Send(data, sizeof(data) / sizeof(data[0]));
@@ -626,14 +496,41 @@ static void vHandleSerialInput(void) {
         vfPrintf(&sSerStream, "\n\r# activate sended!");
       } break;
 
-      case 'i': {
-        for (int i = 0; i < 12; i++) {
-          colorApply(i, 100, 0, 0);
-          vWait(1000 * 1000);
-          colorApply(i, 0, 0, 0);
-          vWait(1000 * 1000);
-        }
+      case 'c': {
+        uint8 data[] = {0x5A, 0xA5, 0x03, 0x01, 0x02, 0xFF};
+        lpr9201Send(data, sizeof(data) / sizeof(data[0]));
+
+        vfPrintf(&sSerStream, "\n\r# read parameter 2 sended!");
       } break;
+
+      case 'd': {
+        uint8 data[] = {0x5a,
+                        0xa5,
+                        0x2,
+                        0x3,
+                        0x2,
+                        0x3,
+                        0xef,
+                        0x10,};
+        lpr9201Send(data, sizeof(data) / sizeof(data[0]));
+
+        vfPrintf(&sSerStream, "\n\r# write 1007 parameter 2 sended!");
+      } break;
+
+      case 'e': {
+        uint8 data[] = {
+        0x5a,
+        0xa5,
+        0x06,
+        0x01,
+        0x00,
+        0xf8,
+        };
+        lpr9201Send(data, sizeof(data) / sizeof(data[0]));
+
+        vfPrintf(&sSerStream, "\n\r# write profile sended!");
+      } break;
+      */
 
       case 'j': {
         gradation = 0;
@@ -644,58 +541,19 @@ static void vHandleSerialInput(void) {
       } break;
 
       case 'l': {
-        for (int i = 0; i < sizeof(sPCA9685s) / sizeof(sPCA9685s[0]); i++) {
-          vPCA9685_setAllLed(&sPCA9685s[i], 0.5);
-        }
+        number = 0;
       } break;
 
       case 'm': {
-        for (int i = 0; i < sizeof(sPCA9685s) / sizeof(sPCA9685s[0]); i++) {
-          vPCA9685_setAllLed(&sPCA9685s[i], 0);
-        }
+        vFullColorLed_setLed(&sFullColorLed, arr[number], 0x0F0000);
+
+        number = (number + 1) % 12;
       } break;
 
       case 'n': {
-        num += 0.1;
-        for (int i = 0; i < sizeof(sPCA9685s) / sizeof(sPCA9685s[0]); i++) {
-          for (int j = 0; j < 16; j += 4) {
-            vPCA9685_setLed(&sPCA9685s[i], j, num);
-          }
+        for (int i = 0; i < 12; i++) {
+          vFullColorLed_setLed(&sFullColorLed, i, 0x000000);
         }
-
-      } break;
-
-      case 'o': {
-        num = 0;
-      } break;
-
-      case 'p': {
-        for (int i = 0; i < sizeof(sPCA9685s) / sizeof(sPCA9685s[0]); i++) {
-          vPCA9685_setLed(&sPCA9685s[i], 0, 0.5);
-        }
-      } break;
-
-      case 'q': {
-        for (int i = 0; i < sizeof(sPCA9685s) / sizeof(sPCA9685s[0]); i++) {
-          vPCA9685_setLed(&sPCA9685s[i], 0, 0.1);
-        }
-      } break;
-
-      case 'r': {
-        tsPCA9685 sPCA9685;
-        sPCA9685.slaveAddress = PCA9685_ALLCALL_ADDRESS;
-        vPCA9685_setLed(&sPCA9685, 0, 0.5);
-      } break;
-
-      case 's': {
-        tsPCA9685 sPCA9685;
-        sPCA9685.slaveAddress = PCA9685_ALLCALL_ADDRESS;
-        vPCA9685_setLed(&sPCA9685, 0, 0.1);
-      } break;
-
-      case 't': {
-        // vPCA9685_writeRegister(&sPCA9685, PCA9685_SOFTWARE_RESET_ADDRESS);
-        bSMBusWrite(&sPCA9685s[0], PCA9685_SOFTWARE_RESET_ADDRESS, 0, NULL);
       } break;
 
       default:
