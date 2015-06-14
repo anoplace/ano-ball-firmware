@@ -31,6 +31,7 @@
 
 #include "SMBus.h"
 #include "lpr9201.h"
+#include "PCA9685.h"
 
 typedef struct {
   // MAC
@@ -55,7 +56,6 @@ void vSerialInit(uint32 u32Baud, tsUartOpt *pUartOpt);
 void vSerialInit2(uint32 u32Baud, tsUartOpt *pUartOpt);
 static void vHandleSerialInput(void);
 
-
 void lpr9201Send(uint8 *data, int length);
 
 /* Local data used by the tag during operation */
@@ -69,9 +69,17 @@ tsSerialPortSetup sSerPort2;
 // Wakeup port
 const uint32 u32DioPortWakeUp = 1UL << 7;  // UART Rx Port
 
+tsPCA9685 sPCA9685s[] = {
+    {0x7F},  //
+    {0x7E},  //
+    {0x7D},  //
+};
+
 uint8 slaveAddrs[] = {0x7F, 0x7E, 0x7D};
 uint8 slaveAddr = 0x7F;
 Result lpr9201Result;
+
+uint8 gradation = 0;
 
 /**
  * AppColdStart
@@ -109,13 +117,10 @@ void cbAppColdStart(bool_t bAfterAhiInit) {
     // Register
     ToCoNet_Event_Register_State_Machine(vProcessEvCore);
 
-
     //
     memset(&lpr9201Result, 0, sizeof(lpr9201Result));
     lpr9201_parser_init(&lpr9201Result);
     //
-
-
 
     // Others
     vInitHardware(FALSE);
@@ -269,6 +274,20 @@ void cbToCoNet_vHwEvent(uint32 u32DeviceId, uint32 u32ItemBitmap) {
       // LED blink
       // vPortSet_TrueAsLo(PORT_KIT_LED2, u32TickCount_ms & 0x400);
 
+      if (u32TickCount_ms & 0x04) {
+        if (gradation != 0 && gradation != 255) {
+          gradation++;
+          uint16 data[12] = {};
+
+          for (int i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
+            data[i] = gradation;
+          }
+
+          colorApply2(0, data, 0);
+        }
+      } else {
+      }
+
       // LED on when receive
       if (u32TickCount_ms - sAppData.u32LedCt < 300) {
         // vPortSetLo(PORT_KIT_LED1);
@@ -320,42 +339,18 @@ static void vInitHardware(int f_warm_start) {
   ToCoNet_vDebugInit(&sSerStream);
   ToCoNet_vDebugLevel(0);
 
-  // GPIO initialize
+  // GPIOを初期化
   // vPortSetLo(PORT_KIT_LED1);
   // vPortSetHi(PORT_KIT_LED2);
   // vPortAsOutput(PORT_KIT_LED1);
   // vPortAsOutput(PORT_KIT_LED2);
 
-
-
+  // I2Cを初期化
   vSMBusInit();
 
-  // pca9685
-  for (int i = 0; i < sizeof(slaveAddrs) / sizeof(slaveAddrs[0]); i++) {
-    uint8 slaveAddr = slaveAddrs[i];
-
-    {
-      // MODE1レジスタを読み込む
-      uint8 data[1] = {};
-      bSMBusWrite(slaveAddr, 0x00, 0, NULL);
-      bSMBusSequentialRead(slaveAddr, sizeof(data) / sizeof(data[0]), data);
-    }
-
-    {
-      // MODE1レジスタを設定
-      bSMBusWrite(slaveAddr, 0x00, 0, NULL);
-
-      uint8 data[1] = {0xA0};
-      bSMBusWrite(slaveAddr, 0x00, sizeof(data) / sizeof(data[0]), data);
-      // vfPrintf(&sSerStream, "\n\r# SMBus write mode1: 0x%02X", data[0]);
-    }
-
-    {
-      // MODE2レジスタを設定
-      uint8 data[1] = {0x04};
-      bSMBusWrite(slaveAddr, 0x01, sizeof(data) / sizeof(data[0]), data);
-      // vfPrintf(&sSerStream, "\n\r# SMBus write mode2: 0x%02X", data[0]);
-    }
+  // PCA9685を初期化
+  for (int i = 0; i < sizeof(sPCA9685s) / sizeof(sPCA9685s[0]); i++) {
+    vPCA9685_Init(&sPCA9685s[i]);
   }
 
   vWait(1000 * 10000);
@@ -424,94 +419,109 @@ void vSerialInit2(uint32 u32Baud, tsUartOpt *pUartOpt) {
 }
 
 uint8 color[] = {
-  0x00, 0x00, 0x00, 0x00, //
-  0x00, 0x00, 0x00, 0x00, //
-  0x00, 0x00, 0x00, 0x00, //
-  0x00, 0x00, 0x00, 0x00, //
+    0x00, 0x00, 0x00, 0x00,  //
+    0x00, 0x00, 0x00, 0x00,  //
+    0x00, 0x00, 0x00, 0x00,  //
+    0x00, 0x00, 0x00, 0x00,  //
 
-  0x00, 0x00, 0x00, 0x00, //
-  0x00, 0x00, 0x00, 0x00, //
-  0x00, 0x00, 0x00, 0x00, //
-  0x00, 0x00, 0x00, 0x00, //
+    0x00, 0x00, 0x00, 0x00,  //
+    0x00, 0x00, 0x00, 0x00,  //
+    0x00, 0x00, 0x00, 0x00,  //
+    0x00, 0x00, 0x00, 0x00,  //
 
-  0x00, 0x00, 0x00, 0x00, //
-  0x00, 0x00, 0x00, 0x00, //
-  0x00, 0x00, 0x00, 0x00, //
-  0x00, 0x00, 0x00, 0x00, //
+    0x00, 0x00, 0x00, 0x00,  //
+    0x00, 0x00, 0x00, 0x00,  //
+    0x00, 0x00, 0x00, 0x00,  //
+    0x00, 0x00, 0x00, 0x00,  //
 
-  0x00, 0x00, 0x00, 0x00, //
-  0x00, 0x00, 0x00, 0x00, //
-  0x00, 0x00, 0x00, 0x00, //
-  0x00, 0x00, 0x00, 0x00, //
+    0x00, 0x00, 0x00, 0x00,  //
+    0x00, 0x00, 0x00, 0x00,  //
+    0x00, 0x00, 0x00, 0x00,  //
+    0x00, 0x00, 0x00, 0x00,  //
 };
 
 void colorApply2(uint8 index, uint8 *datas, uint8 offset) {
+  // blue0
   uint16 d2 = datas[offset + 2] * 4096 / 256;
   color[2 + 4 * 0] = d2 >> 0;
   color[3 + 4 * 0] = d2 >> 8;
 
+  // red0
   uint16 d0 = datas[offset + 0] * 4096 / 256;
   color[2 + 4 * 1] = d0 >> 0;
   color[3 + 4 * 1] = d0 >> 8;
 
+  // green0
   uint16 d1 = datas[offset + 1] * 4096 / 256;
   color[2 + 4 * 2] = d1 >> 0;
   color[3 + 4 * 2] = d1 >> 8;
 
-  //color[2 + 4 * 3] = 0x00;
-  //color[3 + 4 * 3] = 0x00;
+  // white0
+  // color[2 + 4 * 3] = 0x00;
+  // color[3 + 4 * 3] = 0x00;
 
   /////
 
+  // blue1
   uint16 d5 = datas[offset + 5] * 4096 / 256;
   color[2 + 4 * 4] = d5 >> 0;
   color[3 + 4 * 4] = d5 >> 8;
 
+  // red1
   uint16 d3 = datas[offset + 3] * 4096 / 256;
   color[2 + 4 * 5] = d3 >> 0;
   color[3 + 4 * 5] = d3 >> 8;
 
+  // green1
   uint16 d4 = datas[offset + 4] * 4096 / 256;
   color[2 + 4 * 6] = d4 >> 0;
   color[3 + 4 * 6] = d4 >> 8;
 
-  //color[2 + 4 * 7] = 0x00;
-  //color[3 + 4 * 7] = 0x00;
+  // white1
+  // color[2 + 4 * 7] = 0x00;
+  // color[3 + 4 * 7] = 0x00;
 
   /////
 
+  // blue2
   uint16 d8 = datas[offset + 8] * 4096 / 256;
   color[2 + 4 * 8] = d8 >> 0;
   color[3 + 4 * 8] = d8 >> 8;
 
+  // red2
   uint16 d6 = datas[offset + 6] * 4096 / 256;
   color[2 + 4 * 9] = d6 >> 0;
   color[3 + 4 * 9] = d6 >> 8;
 
+  // green2
   uint16 d7 = datas[offset + 7] * 4096 / 256;
   color[2 + 4 * 10] = d7 >> 0;
   color[3 + 4 * 10] = d7 >> 8;
 
-  //color[2 + 4 * 11] = 0x00;
-  //color[3 + 4 * 11] = 0x00;
+  // white2
+  // color[2 + 4 * 11] = 0x00;
+  // color[3 + 4 * 11] = 0x00;
 
   /////
 
+  // blue3
   uint16 d11 = datas[offset + 11] * 4096 / 256;
   color[2 + 4 * 12] = d11 >> 0;
   color[3 + 4 * 12] = d11 >> 8;
 
+  // red3
   uint16 d9 = datas[offset + 9] * 4096 / 256;
   color[2 + 4 * 13] = d9 >> 0;
   color[3 + 4 * 13] = d9 >> 8;
 
+  // green3
   uint16 d10 = datas[offset + 10] * 4096 / 256;
   color[2 + 4 * 14] = d10 >> 0;
   color[3 + 4 * 14] = d10 >> 8;
 
-  //color[2 + 4 * 15] = 0x00;
-  //color[2 + 4 * 15] = 0x00;
-
+  // white3
+  // color[2 + 4 * 15] = 0x00;
+  // color[2 + 4 * 15] = 0x00;
 
   bSMBusWrite(slaveAddrs[index], 0x06, sizeof(color) / sizeof(color[0]), color);
   vfPrintf(&sSerStream, "\n\r# SMBus write led1 on: %d", color[0]);
@@ -520,10 +530,10 @@ void colorApply2(uint8 index, uint8 *datas, uint8 offset) {
 
 void colorApply(uint8 index, uint8 red, uint8 green, uint8 blue) {
   uint8 data[] = {
-    0x00, 0x00, blue, 0x00,
-    0x00, 0x00, red, 0x00,
-    0x00, 0x00, green, 0x00,
-    0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, blue,  0x00,  //
+      0x00, 0x00, red,   0x00,  //
+      0x00, 0x00, green, 0x00,  //
+      0x00, 0x00, 0x00,  0x00,  //
   };
 
   uint8 slaveAddrIndex = 0;
@@ -536,11 +546,12 @@ void colorApply(uint8 index, uint8 red, uint8 green, uint8 blue) {
 
   } else if (8 <= index && index <= 11) {
     slaveAddrIndex = 2;
-
   }
 
-  bSMBusWrite(slaveAddrs[slaveAddrIndex], 0x06 + (index % 4) * 4, sizeof(data) / sizeof(data[0]), data);
-  vfPrintf(&sSerStream, "\n\r# SMBus write chip:0x%02X led:%d", slaveAddrs[slaveAddrIndex], index);
+  bSMBusWrite(slaveAddrs[slaveAddrIndex], 0x06 + (index % 4) * 4,
+              sizeof(data) / sizeof(data[0]), data);
+  vfPrintf(&sSerStream, "\n\r# SMBus write chip:0x%02X led:%d",
+           slaveAddrs[slaveAddrIndex], index);
   SERIAL_vFlush(sSerStream.u8Device);
 }
 
@@ -551,6 +562,9 @@ void lpr9201Send(uint8 *data, int length) {
 
   vfPrintf(&sSerStream, "\n\r# sended!");
 }
+
+// FIXME
+float num = 0;
 
 /**
  * HandleSerialInput
@@ -563,21 +577,26 @@ static void vHandleSerialInput(void) {
     vfPrintf(&sSerStream, "\n\r# lpr9201 [0x%02X]", i16Char);
     SERIAL_vFlush(sSerStream.u8Device);
 
-    if (lpr9201_parser_parse(i16Char, &lpr9201Result) && lpr9201Result.resultCode == 0x83) { // dataのみ
+    if (lpr9201_parser_parse(i16Char, &lpr9201Result) &&
+        lpr9201Result.resultCode == 0x83) {  // dataのみ
       vfPrintf(&sSerStream, "\n\r# lpr9201 success parse");
 
-      for (int i = lpr9201Result.dataOffset; i < lpr9201Result.dataOffset + lpr9201Result.dataLength; i++) {
-        vfPrintf(&sSerStream, "\n\r# lpr9201 parsed [0x%02X]", lpr9201Result.receiveData[i]);
+      for (int i = lpr9201Result.dataOffset;
+           i < lpr9201Result.dataOffset + lpr9201Result.dataLength; i++) {
+        vfPrintf(&sSerStream, "\n\r# lpr9201 parsed [0x%02X]",
+                 lpr9201Result.receiveData[i]);
         SERIAL_vFlush(sSerStream.u8Device);
       }
 
-      vfPrintf(&sSerStream, "\n\r# lpr9201 length: %d", lpr9201Result.dataLength);
+      vfPrintf(&sSerStream, "\n\r# lpr9201 length: %d",
+               lpr9201Result.dataLength);
       SERIAL_vFlush(sSerStream.u8Device);
 
-      if (lpr9201Result.dataLength >= 36) {//FIXME
+      if (lpr9201Result.dataLength >= 36) {  // FIXME
 
         for (int i = 0; i < sizeof(slaveAddrs) / sizeof(slaveAddrs[0]); i++) {
-          colorApply2(i, lpr9201Result.receiveData, lpr9201Result.dataOffset + 12 * i);
+          colorApply2(i, lpr9201Result.receiveData,
+                      lpr9201Result.dataOffset + 12 * i);
         }
       }
     }
@@ -608,12 +627,75 @@ static void vHandleSerialInput(void) {
       } break;
 
       case 'i': {
-        for (int i = 0 ; i < 12; i++) {
+        for (int i = 0; i < 12; i++) {
           colorApply(i, 100, 0, 0);
           vWait(1000 * 1000);
           colorApply(i, 0, 0, 0);
           vWait(1000 * 1000);
         }
+      } break;
+
+      case 'j': {
+        gradation = 0;
+      } break;
+
+      case 'k': {
+        gradation = 1;
+      } break;
+
+      case 'l': {
+        for (int i = 0; i < sizeof(sPCA9685s) / sizeof(sPCA9685s[0]); i++) {
+          vPCA9685_setAllLed(&sPCA9685s[i], 0.5);
+        }
+      } break;
+
+      case 'm': {
+        for (int i = 0; i < sizeof(sPCA9685s) / sizeof(sPCA9685s[0]); i++) {
+          vPCA9685_setAllLed(&sPCA9685s[i], 0);
+        }
+      } break;
+
+      case 'n': {
+        num += 0.1;
+        for (int i = 0; i < sizeof(sPCA9685s) / sizeof(sPCA9685s[0]); i++) {
+          for (int j = 0; j < 16; j += 4) {
+            vPCA9685_setLed(&sPCA9685s[i], j, num);
+          }
+        }
+
+      } break;
+
+      case 'o': {
+        num = 0;
+      } break;
+
+      case 'p': {
+        for (int i = 0; i < sizeof(sPCA9685s) / sizeof(sPCA9685s[0]); i++) {
+          vPCA9685_setLed(&sPCA9685s[i], 0, 0.5);
+        }
+      } break;
+
+      case 'q': {
+        for (int i = 0; i < sizeof(sPCA9685s) / sizeof(sPCA9685s[0]); i++) {
+          vPCA9685_setLed(&sPCA9685s[i], 0, 0.1);
+        }
+      } break;
+
+      case 'r': {
+        tsPCA9685 sPCA9685;
+        sPCA9685.slaveAddress = PCA9685_ALLCALL_ADDRESS;
+        vPCA9685_setLed(&sPCA9685, 0, 0.5);
+      } break;
+
+      case 's': {
+        tsPCA9685 sPCA9685;
+        sPCA9685.slaveAddress = PCA9685_ALLCALL_ADDRESS;
+        vPCA9685_setLed(&sPCA9685, 0, 0.1);
+      } break;
+
+      case 't': {
+        // vPCA9685_writeRegister(&sPCA9685, PCA9685_SOFTWARE_RESET_ADDRESS);
+        bSMBusWrite(&sPCA9685s[0], PCA9685_SOFTWARE_RESET_ADDRESS, 0, NULL);
       } break;
 
       default:
