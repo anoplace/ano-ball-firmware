@@ -20,6 +20,9 @@ PUBLIC void vPCA9685_Init(tsPCA9685 *psPCA9685) {
   // prescale
   vPCA9685_prescale(psPCA9685, PCA9685_PRESCALE_INTERNAL_OSC,
                     PCA9685_PRESCALE_DEFAULT_FREQUENCY);
+
+  // all led off
+  vPCA9685_setAllLedRaw(psPCA9685, 0x0000);
 }
 
 /**
