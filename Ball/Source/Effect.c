@@ -51,13 +51,18 @@ PUBLIC void vEffect_Gradation(tsEffect *psEffect, tsColor *psStartColor,
  *
  * @param
  */
-PUBLIC void vEffect_FadeIn(tsEffect *psEffect) {}
+PUBLIC void vEffect_FadeIn(tsEffect *psEffect, tsColor *psColor, uint16 u16Duration) {
+  tsColor sColor = {0.0, 0.0, 0.0};
+  vEffect_Gradation(psEffect, &sColor, psColor, u16Duration);
+}
 
 /**
  *
  * @param
  */
-PUBLIC void vEffect_FadeOut(tsEffect *psEffect) {}
+PUBLIC void vEffect_FadeOut(tsEffect *psEffect, uint16 u16Duration) {
+  //vEffect_Gradation(psEffect, tsColor{0.0, 0.0, 0.0}, u16Duration);
+}
 
 /**
  *
