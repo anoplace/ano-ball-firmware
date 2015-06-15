@@ -137,9 +137,9 @@ typedef struct {
 
 PUBLIC void vPCA9685_Init(tsPCA9685 *psPCA9685);
 PUBLIC void vPCA9685_setLedRaw(tsPCA9685 *psPCA9685, uint8 index, uint16 value);
-PUBLIC void vPCA9685_setLed(tsPCA9685 *psPCA9685, uint8 index, float percent);
+PUBLIC void vPCA9685_setLed(tsPCA9685 *psPCA9685, uint8 index, float fPercent);
 PUBLIC void vPCA9685_setAllLedRaw(tsPCA9685 *psPCA9685, uint16 value);
-PUBLIC void vPCA9685_setAllLed(tsPCA9685 *psPCA9685, float percent);
+PUBLIC void vPCA9685_setAllLed(tsPCA9685 *psPCA9685, float fPercent);
 PUBLIC void vPCA9685_setRgbwLedRaw(tsPCA9685 *psPCA9685, uint8 u8Index,
                                    uint16 u16Red, uint16 u16Green,
                                    uint16 u16Blue, uint16 u16White);

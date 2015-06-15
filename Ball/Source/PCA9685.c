@@ -43,8 +43,8 @@ PUBLIC void vPCA9685_setLedRaw(tsPCA9685 *psPCA9685, uint8 index,
  *
  * @param
  */
-PUBLIC void vPCA9685_setLed(tsPCA9685 *psPCA9685, uint8 index, float percent) {
-  vPCA9685_setLedRaw(psPCA9685, index, 4096 * percent);
+PUBLIC void vPCA9685_setLed(tsPCA9685 *psPCA9685, uint8 index, float fPercent) {
+  vPCA9685_setLedRaw(psPCA9685, index, 4096 * fPercent);
 }
 
 /**
@@ -64,8 +64,8 @@ PUBLIC void vPCA9685_setAllLedRaw(tsPCA9685 *psPCA9685, uint16 value) {
  *
  * @param
  */
-PUBLIC void vPCA9685_setAllLed(tsPCA9685 *psPCA9685, float percent) {
-  vPCA9685_setAllLedRaw(psPCA9685, 4096 * percent);
+PUBLIC void vPCA9685_setAllLed(tsPCA9685 *psPCA9685, float fPercent) {
+  vPCA9685_setAllLedRaw(psPCA9685, 4096 * fPercent);
 }
 
 /**
