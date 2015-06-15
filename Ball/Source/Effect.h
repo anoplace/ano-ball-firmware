@@ -16,7 +16,7 @@ typedef struct {
   tsColor startColor;
   tsColor targetColor;
   uint32 startEffectTime;
-  uint16 duration;
+  uint16 u16Duration;
 } tsEffect;
 
 PUBLIC bool_t vEffect_Update(tsEffect *psEffect);

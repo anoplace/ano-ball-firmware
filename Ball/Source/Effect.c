@@ -2,6 +2,8 @@
 #include <AppHardwareApi.h>
 
 #include "Effect.h"
+#include "ToCoNet.h"  //FIXME 追加しなくて良いようにする
+#include "string.h"
 
 PRIVATE bool_t bCompareColor(tsColor *a, tsColor *b);
 
@@ -9,19 +11,41 @@ PRIVATE bool_t bCompareColor(tsColor *a, tsColor *b);
  *
  * @param
  */
-PUBLIC void vEffect_Init(tsEffect *psEffect) {}
+PUBLIC void vEffect_Init(tsEffect *psEffect) {
+  psEffect->startColor.fRed = 0.0;
+  psEffect->startColor.fGreen = 0.0;
+  psEffect->startColor.fBlue = 0.0;
+
+  psEffect->targetColor.fRed = 0.0;
+  psEffect->targetColor.fGreen = 0.0;
+  psEffect->targetColor.fBlue = 0.0;
+}
 
 /**
  *
  * @param
  */
-PUBLIC void vEffect_SetColor(tsEffect *psEffect) {}
+PUBLIC void vEffect_SetColor(tsEffect *psEffect, tsColor *psColor) {
+  psEffect->color = *psColor;
+  psEffect->startColor = *psColor;
+  psEffect->targetColor = *psColor;
+
+  // apply();
+}
 
 /**
  *
  * @param
  */
-PUBLIC void vEffect_Gradation(tsEffect *psEffect) {}
+PUBLIC void vEffect_Gradation(tsEffect *psEffect, tsColor *psStartColor,
+                              tsColor *psTargetColor, uint16 u16Duration) {
+  psEffect->startColor = *psStartColor;
+  psEffect->startColor = *psTargetColor;
+  psEffect->startEffectTime = u32TickCount_ms;
+  psEffect->u16Duration = u16Duration;
+
+  vEffect_Update(psEffect);
+}
 
 /**
  *
@@ -40,25 +64,28 @@ PUBLIC void vEffect_FadeOut(tsEffect *psEffect) {}
  * @param
  */
 PUBLIC bool_t vEffect_Update(tsEffect *psEffect) {
-  bool_t bIsChanging = bCompareColor(&(psEffect->color), &(psEffect->targetColor));
+  bool_t bIsChanging =
+      bCompareColor(&(psEffect->color), &(psEffect->targetColor));
 
-  //  if (bIsChanging) {
-  //    float percent = (float)(u32TickCount_ms - psEffect->startEffectTime) /
-  //    psEffect->duration;
-  //    percent = percent > 1.0 ? 1.0 : percent;
-  //
-  //    psEffect->color =
-  //        Color(psEffect->startColor.red +
-  //                  (psEffect->targetColor.red - psEffect->startColor.red) *
-  //                  percent,
-  //              psEffect->startColor.green +
-  //                  (this->targetColor.green - psEffect->startColor.green) *
-  //                  percent,
-  //              psEffect->startColor.blue +
-  //                  (psEffect->targetColor.blue - psEffect->startColor.blue) *
-  //                  percent);
-  //    psEffect->apply();
-  //  }
+  if (bIsChanging) {
+    float fPercent = (float)(u32TickCount_ms - psEffect->startEffectTime) /
+                     psEffect->u16Duration;
+    fPercent = fPercent > 1.0 ? 1.0 : fPercent;
+
+    psEffect->color.fRed =
+        psEffect->startColor.fRed +
+        (psEffect->targetColor.fRed - psEffect->startColor.fRed) * fPercent;
+
+    psEffect->color.fGreen =
+        psEffect->startColor.fGreen +
+        (psEffect->targetColor.fGreen - psEffect->startColor.fGreen) * fPercent;
+
+    psEffect->color.fBlue =
+        psEffect->startColor.fBlue +
+        (psEffect->targetColor.fBlue - psEffect->startColor.fBlue) * fPercent;
+
+    // psEffect->apply();
+  }
 
   return bIsChanging;
 }
