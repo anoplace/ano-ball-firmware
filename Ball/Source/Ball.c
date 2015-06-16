@@ -33,6 +33,7 @@
 #include "LPR9201.h"
 #include "PCA9685.h"
 #include "FullColorLed.h"
+#include "Effect.h"
 
 typedef struct {
   // MAC
@@ -88,7 +89,7 @@ tsFullColorLed sFullColorLed = {
 
 Result lpr9201Result;
 
-uint8 gradation = 0;
+uint16 gradation = 0;
 
 /**
  * AppColdStart
@@ -269,8 +270,6 @@ void cbToCoNet_vRxEvent(tsRxDataApp *pRx) {
  */
 void cbToCoNet_vTxEvent(uint8 u8CbId, uint8 bStatus) { return; }
 
-int num = 0;
-
 /**
  * HwEvent
  * Process any hardware events.
@@ -283,11 +282,15 @@ void cbToCoNet_vHwEvent(uint32 u32DeviceId, uint32 u32ItemBitmap) {
       // LED blink
       // vPortSet_TrueAsLo(PORT_KIT_LED2, u32TickCount_ms & 0x400);
 
-      if (u32TickCount_ms & 0x200) {
-        if (gradation != 0 && gradation != 255) {
+      //      if (u32TickCount_ms & 0x200) {
+      if (u32TickCount_ms & 0x8) {
+        if (gradation != 0 && gradation != 65535) {
           gradation++;
+
+          for (int i = 0; i < 12; i++) {
+            vFullColorLed_setLed(&sFullColorLed, i, gradation);
+          }
         }
-      } else {
       }
 
       // LED on when receive
@@ -426,9 +429,6 @@ void lpr9201Send(uint8 *data, int length) {
   vfPrintf(&sSerStream, "\n\r# sended!");
 }
 
-// FIXME
-int number = 0;
-
 /**
  * HandleSerialInput
  */
@@ -531,30 +531,6 @@ static void vHandleSerialInput(void) {
         vfPrintf(&sSerStream, "\n\r# write profile sended!");
       } break;
       */
-
-      case 'j': {
-        gradation = 0;
-      } break;
-
-      case 'k': {
-        gradation = 1;
-      } break;
-
-      case 'l': {
-        number = 0;
-      } break;
-
-      case 'm': {
-        vFullColorLed_setLed(&sFullColorLed, number, 0x0F0000);
-
-        number = (number + 1) % 12;
-      } break;
-
-      case 'n': {
-        for (int i = 0; i < 12; i++) {
-          vFullColorLed_setLed(&sFullColorLed, i, 0x000000);
-        }
-      } break;
 
       default:
         break;
