@@ -25,10 +25,10 @@ PUBLIC void vEffect_Init(tsEffect *psEffect) {
  *
  * @param
  */
-PUBLIC void vEffect_SetColor(tsEffect *psEffect, tsColor *psColor) {
-  psEffect->color = *psColor;
-  psEffect->startColor = *psColor;
-  psEffect->targetColor = *psColor;
+PUBLIC void vEffect_SetColor(tsEffect *psEffect, tsColor sColor) {
+  psEffect->color = sColor;
+  psEffect->startColor = sColor;
+  psEffect->targetColor = sColor;
 
   // apply();
 }
@@ -37,23 +37,24 @@ PUBLIC void vEffect_SetColor(tsEffect *psEffect, tsColor *psColor) {
  *
  * @param
  */
-PUBLIC void vEffect_Gradation(tsEffect *psEffect, tsColor *psStartColor,
-                              tsColor *psTargetColor, uint16 u16Duration) {
-  psEffect->startColor = *psStartColor;
-  psEffect->startColor = *psTargetColor;
+PUBLIC void vEffect_Gradation(tsEffect *psEffect, tsColor sStartColor,
+                              tsColor sTargetColor, uint16 u16Duration) {
+  psEffect->startColor = sStartColor;
+  psEffect->startColor = sTargetColor;
   psEffect->startEffectTime = u32TickCount_ms;
   psEffect->u16Duration = u16Duration;
 
-  vEffect_Update(psEffect);
+  //   vEffect_Update(psEffect);
 }
 
 /**
  *
  * @param
  */
-PUBLIC void vEffect_FadeIn(tsEffect *psEffect, tsColor *psColor, uint16 u16Duration) {
-  tsColor sColor = {0.0, 0.0, 0.0};
-  vEffect_Gradation(psEffect, &sColor, psColor, u16Duration);
+PUBLIC void vEffect_FadeIn(tsEffect *psEffect, tsColor sColor,
+                           uint16 u16Duration) {
+  tsColor c = {0.0, 0.0, 0.0};
+  vEffect_Gradation(psEffect, c, sColor, u16Duration);
 }
 
 /**
@@ -61,7 +62,7 @@ PUBLIC void vEffect_FadeIn(tsEffect *psEffect, tsColor *psColor, uint16 u16Durat
  * @param
  */
 PUBLIC void vEffect_FadeOut(tsEffect *psEffect, uint16 u16Duration) {
-  //vEffect_Gradation(psEffect, tsColor{0.0, 0.0, 0.0}, u16Duration);
+  // vEffect_Gradation(psEffect, tsColor{0.0, 0.0, 0.0}, u16Duration);
 }
 
 /**
@@ -70,7 +71,7 @@ PUBLIC void vEffect_FadeOut(tsEffect *psEffect, uint16 u16Duration) {
  */
 PUBLIC bool_t vEffect_Update(tsEffect *psEffect) {
   bool_t bIsChanging =
-      bCompareColor(&(psEffect->color), &(psEffect->targetColor));
+      !bCompareColor(&(psEffect->color), &(psEffect->targetColor));
 
   if (bIsChanging) {
     float fPercent = (float)(u32TickCount_ms - psEffect->startEffectTime) /

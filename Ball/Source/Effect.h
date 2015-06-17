@@ -19,6 +19,13 @@ typedef struct {
   uint16 u16Duration;
 } tsEffect;
 
+PUBLIC void vEffect_Init(tsEffect *psEffect);
+PUBLIC void vEffect_SetColor(tsEffect *psEffect, tsColor sColor);
+PUBLIC void vEffect_Gradation(tsEffect *psEffect, tsColor sStartColor,
+                              tsColor sTargetColor, uint16 u16Duration);
+PUBLIC void vEffect_FadeIn(tsEffect *psEffect, tsColor sColor,
+                           uint16 u16Duration);
+PUBLIC void vEffect_FadeOut(tsEffect *psEffect, uint16 u16Duration);
 PUBLIC bool_t vEffect_Update(tsEffect *psEffect);
 
 #if defined __cplusplus
