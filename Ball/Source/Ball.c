@@ -87,9 +87,9 @@ tsFullColorLed sFullColorLed = {
     u8LedMappingTable                          //
 };
 
-Result lpr9201Result;
+tsEffect sEffects[12];
 
-uint16 gradation = 0;
+Result lpr9201Result;
 
 /**
  * AppColdStart
@@ -282,13 +282,22 @@ void cbToCoNet_vHwEvent(uint32 u32DeviceId, uint32 u32ItemBitmap) {
       // LED blink
       // vPortSet_TrueAsLo(PORT_KIT_LED2, u32TickCount_ms & 0x400);
 
-      //      if (u32TickCount_ms & 0x200) {
       if (u32TickCount_ms & 0x8) {
-        if (gradation != 0 && gradation != 65535) {
-          gradation++;
+        for (uint8 i = 0; i < 12; i++) {
+          if (vEffect_Update(&sEffects[i])) {
+            vfPrintf(&sSerStream, LB "effect update %d" LB, i);
 
-          for (int i = 0; i < 12; i++) {
-            vFullColorLed_setLed(&sFullColorLed, i, gradation);
+//            vfPrintf(&sSerStream, LB "effect red %d" LB, (int)(sEffects[i].color.fRed * 4096));
+//            vfPrintf(&sSerStream, LB "effect green %d" LB, (int)(sEffects[i].color.fGreen * 4096));
+//            vfPrintf(&sSerStream, LB "effect blue %d" LB, (int)(sEffects[i].color.fBlue * 4096));
+//
+//            SERIAL_vFlush(sSerStream.u8Device);
+
+            vFullColorLed_setLedRaw(&sFullColorLed, i,                //
+                                    sEffects[i].color.fRed * 4096,    //
+                                    sEffects[i].color.fGreen * 4096,  //
+                                    sEffects[i].color.fBlue * 4096,   //
+                                    0x0000);
           }
         }
       }
@@ -362,6 +371,11 @@ static void vInitHardware(int f_warm_start) {
     // lpr9201を起動
     uint8 data[] = {0x5A, 0xA5, 0x0B, 0x00, 0xF4};
     lpr9201Send(data, sizeof(data) / sizeof(data[0]));
+  }
+
+  // Effectを初期化
+  for (uint8 i = 0; i < sizeof(sEffects) / sizeof(sEffects[0]); i++) {
+    vEffect_Init(&sEffects[i]);
   }
 }
 
@@ -458,14 +472,21 @@ static void vHandleSerialInput(void) {
       if (lpr9201Result.dataLength >= 36) {  // FIXME
         uint8 *u8Data = lpr9201Result.receiveData;
 
+        uint16 duration = 1000;
+
         for (int i = 0; i < 12; i++) {
           uint8 offset = lpr9201Result.dataOffset + i * 3;
 
-          vFullColorLed_setLedRaw(&sFullColorLed, i,                //
-                                  u8Data[offset + 0] * 4096 / 256,  //
-                                  u8Data[offset + 1] * 4096 / 256,  //
-                                  u8Data[offset + 2] * 4096 / 256,  //
-                                  0x0000);
+          tsColor c = {
+              u8Data[offset + 0] / 255.0,  //
+              u8Data[offset + 1] / 255.0,  //
+              u8Data[offset + 2] / 255.0   //
+          };
+
+//          vEffect_Gradation(&sEffects[i],       //
+//                            sEffects[i].color,  //
+//                            c,                  //
+//                            duration);
         }
       }
     }
@@ -531,6 +552,48 @@ static void vHandleSerialInput(void) {
         vfPrintf(&sSerStream, "\n\r# write profile sended!");
       } break;
       */
+
+      case 'r': {
+        for (int i = 0; i < 12; i++) {
+          vFullColorLed_setLedRaw(&sFullColorLed, i, 4096, 0, 0, 0);
+        }
+      } break;
+
+      case 'R': {
+        for (int i = 0; i < 12; i++) {
+          vFullColorLed_setLedRaw(&sFullColorLed, i, 300, 0, 0, 0);
+        }
+      } break;
+
+      case 'g': {
+        for (int i = 0; i < 12; i++) {
+          vFullColorLed_setLedRaw(&sFullColorLed, i, 0, 4096, 0, 0);
+        }
+      } break;
+
+      case 'G': {
+        for (int i = 0; i < 12; i++) {
+          vFullColorLed_setLedRaw(&sFullColorLed, i, 0, 300, 0, 0);
+        }
+      } break;
+
+      case 'b': {
+        for (int i = 0; i < 12; i++) {
+          vFullColorLed_setLedRaw(&sFullColorLed, i, 0, 0, 4096, 0);
+        }
+      } break;
+
+      case 'B': {
+        for (int i = 0; i < 12; i++) {
+          vFullColorLed_setLedRaw(&sFullColorLed, i, 0, 0, 300, 0);
+        }
+      } break;
+
+      case 'x': {
+        for (int i = 0; i < 12; i++) {
+          vFullColorLed_setLedRaw(&sFullColorLed, i, 0, 0, 0, 0);
+        }
+      } break;
 
       default:
         break;
