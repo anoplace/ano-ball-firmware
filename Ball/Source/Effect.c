@@ -40,7 +40,7 @@ PUBLIC void vEffect_SetColor(tsEffect *psEffect, tsColor sColor) {
 PUBLIC void vEffect_Gradation(tsEffect *psEffect, tsColor sStartColor,
                               tsColor sTargetColor, uint16 u16Duration) {
   psEffect->startColor = sStartColor;
-  psEffect->startColor = sTargetColor;
+  psEffect->targetColor = sTargetColor;
   psEffect->startEffectTime = u32TickCount_ms;
   psEffect->u16Duration = u16Duration;
 
