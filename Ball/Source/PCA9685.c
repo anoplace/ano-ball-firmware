@@ -76,17 +76,17 @@ PUBLIC void vPCA9685_setRgbwLedRaw(tsPCA9685 *psPCA9685, uint8 u8Index,
                                    uint16 u16Red, uint16 u16Green,
                                    uint16 u16Blue, uint16 u16White) {
   uint8 u8Data[] = {
-      0x00, 0x00,                                    // blue led on
-      U16_LOWER_U8(u16Blue), U16_UPPER_U8(u16Blue),  // blue led off
+      0x00, U16_UPPER_U8(u16Blue & 0x1000),                  // blue led on
+      U16_LOWER_U8(u16Blue), U16_UPPER_U8(u16Blue & 0xFFF),  // blue led off
 
-      0x00, 0x00,                                  // red led on
-      U16_LOWER_U8(u16Red), U16_UPPER_U8(u16Red),  // red led off
+      0x00, U16_UPPER_U8(u16Red & 0x1000),                 // red led on
+      U16_LOWER_U8(u16Red), U16_UPPER_U8(u16Red & 0xFFF),  // red led off
 
-      0x00, 0x00,                                      // green led on
-      U16_LOWER_U8(u16Green), U16_UPPER_U8(u16Green),  // green led off
+      0x00, U16_UPPER_U8(u16Green & 0x1000),                   // green led on
+      U16_LOWER_U8(u16Green), U16_UPPER_U8(u16Green & 0xFFF),  // green led off
 
-      0x00, 0x00,                                      // white led on
-      U16_LOWER_U8(u16White), U16_UPPER_U8(u16White),  // white led off
+      0x00, U16_UPPER_U8(u16White & 0x1000),                   // white led on
+      U16_LOWER_U8(u16White), U16_UPPER_U8(u16White & 0xFFF),  // white led off
   };
   vPCA9685_writeRegisters(psPCA9685, PCA9685_LED0_ON_L + u8Index * 16, u8Data,
                           sizeof(u8Data) / sizeof(u8Data[0]));
