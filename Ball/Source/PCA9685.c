@@ -32,7 +32,7 @@ PUBLIC void vPCA9685_Init(tsPCA9685 *psPCA9685) {
 PUBLIC void vPCA9685_setLedRaw(tsPCA9685 *psPCA9685, uint8 index,
                                uint16 value) {
   uint8 u8Data[] = {
-      0x00, 0x00,                                // led on
+      0x00, U16_UPPER_U8(value & 0x1000),        // led on
       U16_LOWER_U8(value), U16_UPPER_U8(value),  // led off
   };
   vPCA9685_writeRegisters(psPCA9685, PCA9685_LED0_ON_L + index * 4, u8Data,
@@ -53,7 +53,7 @@ PUBLIC void vPCA9685_setLed(tsPCA9685 *psPCA9685, uint8 index, float fPercent) {
  */
 PUBLIC void vPCA9685_setAllLedRaw(tsPCA9685 *psPCA9685, uint16 value) {
   uint8 u8Data[] = {
-      0x00, 0x00,                                // led on
+      0x00, U16_UPPER_U8(value & 0x1000),        // led on
       U16_LOWER_U8(value), U16_UPPER_U8(value),  // led off
   };
   vPCA9685_writeRegisters(psPCA9685, PCA9685_ALL_LED_ON_L, u8Data,
@@ -88,8 +88,9 @@ PUBLIC void vPCA9685_setRgbwLedRaw(tsPCA9685 *psPCA9685, uint8 u8Index,
       0x00, U16_UPPER_U8(u16White & 0x1000),                   // white led on
       U16_LOWER_U8(u16White), U16_UPPER_U8(u16White & 0xFFF),  // white led off
   };
-  vPCA9685_writeRegisters(psPCA9685, PCA9685_LED0_ON_L + u8Index * 16, u8Data,
-                          sizeof(u8Data) / sizeof(u8Data[0]));
+  uint8 u8DataLength = sizeof(u8Data) / sizeof(u8Data[0]);
+  vPCA9685_writeRegisters(psPCA9685, PCA9685_LED0_ON_L + u8Index * u8DataLength,
+                          u8Data, u8DataLength);
 }
 
 /**
