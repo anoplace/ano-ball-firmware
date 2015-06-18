@@ -285,13 +285,7 @@ void cbToCoNet_vHwEvent(uint32 u32DeviceId, uint32 u32ItemBitmap) {
       if (u32TickCount_ms & 0x8) {
         for (uint8 i = 0; i < 12; i++) {
           if (vEffect_Update(&sEffects[i])) {
-            vfPrintf(&sSerStream, LB "effect update %d" LB, i);
-
-//            vfPrintf(&sSerStream, LB "effect red %d" LB, (int)(sEffects[i].color.fRed * 4096));
-//            vfPrintf(&sSerStream, LB "effect green %d" LB, (int)(sEffects[i].color.fGreen * 4096));
-//            vfPrintf(&sSerStream, LB "effect blue %d" LB, (int)(sEffects[i].color.fBlue * 4096));
-//
-//            SERIAL_vFlush(sSerStream.u8Device);
+            //vfPrintf(&sSerStream, LB "effect update %d" LB, i);
 
             vFullColorLed_setLedRaw(&sFullColorLed, i,                //
                                     sEffects[i].color.fRed * 4096,    //
@@ -451,31 +445,34 @@ static void vHandleSerialInput(void) {
   while (!SERIAL_bRxQueueEmpty(sSerPort2.u8SerialPort)) {
     int16 i16Char = SERIAL_i16RxChar(sSerPort2.u8SerialPort);
 
-    vfPrintf(&sSerStream, "\n\r# lpr9201 [0x%02X]", i16Char);
-    SERIAL_vFlush(sSerStream.u8Device);
+//    vfPrintf(&sSerStream, "\n\r# lpr9201 [0x%02X]", i16Char);
+//    SERIAL_vFlush(sSerStream.u8Device);
 
     if (lpr9201_parser_parse(i16Char, &lpr9201Result) &&
         lpr9201Result.resultCode == 0x83) {  // dataのみ
-      vfPrintf(&sSerStream, "\n\r# lpr9201 success parse");
+//      vfPrintf(&sSerStream, "\n\r# lpr9201 success parse");
 
-      for (int i = lpr9201Result.dataOffset;
-           i < lpr9201Result.dataOffset + lpr9201Result.dataLength; i++) {
-        vfPrintf(&sSerStream, "\n\r# lpr9201 parsed [0x%02X]",
-                 lpr9201Result.receiveData[i]);
-        SERIAL_vFlush(sSerStream.u8Device);
-      }
+//      for (int i = lpr9201Result.dataOffset;
+//           i < lpr9201Result.dataOffset + lpr9201Result.dataLength; i++) {
+//        vfPrintf(&sSerStream, "\n\r# lpr9201 parsed [0x%02X]",
+//                 lpr9201Result.receiveData[i]);
+//        SERIAL_vFlush(sSerStream.u8Device);
+//      }
 
-      vfPrintf(&sSerStream, "\n\r# lpr9201 length: %d",
-               lpr9201Result.dataLength);
-      SERIAL_vFlush(sSerStream.u8Device);
+//      vfPrintf(&sSerStream, "\n\r# lpr9201 length: %d",
+//               lpr9201Result.dataLength);
+//      SERIAL_vFlush(sSerStream.u8Device);
 
-      if (lpr9201Result.dataLength >= 36) {  // FIXME
+      if (lpr9201Result.dataLength >= 38) {  // FIXME
         uint8 *u8Data = lpr9201Result.receiveData;
 
-        uint16 duration = 1000;
+        uint16 duration = u8Data[lpr9201Result.dataOffset] << 8 | u8Data[lpr9201Result.dataOffset + 1];
+
+        vfPrintf(&sSerStream, "\n\r# duration: %d",
+                       duration);
 
         for (int i = 0; i < 12; i++) {
-          uint8 offset = lpr9201Result.dataOffset + i * 3;
+          uint8 offset = lpr9201Result.dataOffset + i * 3 + 2; // 2はdurationの分のoffset
 
           tsColor c = {
               u8Data[offset + 0] / 255.0,  //
@@ -483,10 +480,10 @@ static void vHandleSerialInput(void) {
               u8Data[offset + 2] / 255.0   //
           };
 
-//          vEffect_Gradation(&sEffects[i],       //
-//                            sEffects[i].color,  //
-//                            c,                  //
-//                            duration);
+          vEffect_Gradation(&sEffects[i],       //
+                            sEffects[i].color,  //
+                            c,                  //
+                            duration);
         }
       }
     }
